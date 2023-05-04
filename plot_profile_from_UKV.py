@@ -1,4 +1,6 @@
 import matplotlib.pyplot as plt
+import numpy as np
+
 import thermodynamics as th
 from iris_read import *
 from plot_profile_from_txt import plot_profile, N_squared, scorer_param
@@ -33,11 +35,16 @@ lons = u_cube.coord('grid_longitude').points
 crs_latlon = ccrs.PlateCarree()
 crs_rotated = u_cube.coord('grid_latitude').coord_system.as_cartopy_crs()
 
-model_x, model_y = transform(crs_latlon, crs_rotated, xpos, ypos)
-model_x += 360
+def convert_to_UKV_coords(x, y, inproj, outproj):
+    out_x, out_y = transform(inproj, outproj, x, y)
+    return out_x + 360, out_y
 
-lat_index = (np.abs(lats - model_y)).argmin()
-lon_index = (np.abs(lons - model_x)).argmin()
+model_x, model_y = convert_to_UKV_coords(xpos, ypos, crs_latlon, crs_rotated)
+
+def latlon_index_selector(desired_lat, desired_lon, lats, lons):
+    return (np.abs(lats - desired_lat)).argmin(), (np.abs(lons - desired_lon)).argmin()
+
+lat_index, lon_index = latlon_index_selector(model_y, model_x, lats, lons)
 true_model_x = lons[lon_index]
 true_model_y = lats[lat_index]
 
