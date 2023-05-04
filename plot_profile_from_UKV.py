@@ -17,7 +17,7 @@ T_cube = read_variable(filename, 16004, h)
 q_cube = read_variable(filename, 10, h)
 
 # only plot up to certain height
-min_height = 150
+min_height = 20
 max_height = 5000
 height = u_cube.coord('level_height').points
 level_mask = (height < max_height) & (height > min_height)
@@ -63,8 +63,7 @@ day = filename[-12:-10]
 forecast_time = filename[-9:-7]
 
 true_x, true_y = transform(crs_rotated, crs_latlon, true_model_x, true_model_y)
-print(true_x, true_y)
-title = f'UKV {true_x:.02f}, {true_y:.02f} on {year}/{month}/{day} at {h} ({forecast_time})'
+title = f'UKV ({true_x:.02f}), {true_y:.02f} on {year}/{month}/{day} at {h} ({forecast_time})'
 plt.suptitle(title)
 plt.tight_layout()
 plt.show()
