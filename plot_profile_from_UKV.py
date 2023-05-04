@@ -51,12 +51,13 @@ true_model_y = lats[lat_index]
 # calculate theta
 theta_col = th.potential_temperature(T_cube.data[level_mask, lat_index, lon_index], p_theta_cube.data[level_mask, lat_index, lon_index])
 
-# need to figure out how to get proper coordinates and how to rotate
 u_col = u_cube.data[level_mask, lat_index, lon_index]
 v_col = v_cube.data[level_mask, lat_index, lon_index]
 
-spd_col = np.sqrt(u_col**2 + v_col**2)
-dir_col = np.arctan2(u_col, v_col)*180/np.pi+180
+def uv_to_spddir(u, v):
+    return np.sqrt(u**2 + v**2),  np.arctan2(u, v)*180/np.pi+180
+
+spd_col, dir_col = uv_to_spddir(u_col, v_col)
 
 # N squared
 N2 = N_squared(theta_col, height)
