@@ -7,56 +7,58 @@ from plot_profile_from_txt import plot_profile, N_squared, scorer_param
 from pyproj import transform
 import cartopy.crs as ccrs
 
+def convert_to_UKV_coords(x, y, inproj, outproj):
+    out_x, out_y = transform(inproj, outproj, x, y)
+    return out_x + 360, out_y
+
+def latlon_index_selector(desired_lat, desired_lon, lats, lons):
+    return (np.abs(lats - desired_lat)).argmin(), (np.abs(lons - desired_lon)).argmin()
+
+def uv_to_spddir(u, v):
+    return np.sqrt(u**2 + v**2),  np.arctan2(u, v)*180/np.pi+180
+
 indir = '/home/users/sw825517/Documents/ukv_data/'
 filename = indir + 'prodm_op_ukv_20150414_09_004.pp'
 
+year = filename[-18:-14]
+month = filename[-14:-12]
+day = filename[-12:-10]
+forecast_time = filename[-9:-7]
 h = 12
+
 p_rho_cube = read_variable(filename, 407, h)
 u_cube = read_variable(filename, 2, h)
 v_cube = read_variable(filename, 3, h)
+
 p_theta_cube = read_variable(filename, 408, h)
 T_cube = read_variable(filename, 16004, h)
 q_cube = read_variable(filename, 10, h)
-
 # only plot up to certain height
 min_height = 20
 max_height = 5000
+
 height = u_cube.coord('level_height').points
 level_mask = (height < max_height) & (height > min_height)
-height = height[level_mask]
-
 # coordinates
+
+height = height[level_mask]
 xpos = -10.35
 ypos = 51.9
-
 lats = u_cube.coord('grid_latitude').points
 lons = u_cube.coord('grid_longitude').points
 
 crs_latlon = ccrs.PlateCarree()
 crs_rotated = u_cube.coord('grid_latitude').coord_system.as_cartopy_crs()
 
-def convert_to_UKV_coords(x, y, inproj, outproj):
-    out_x, out_y = transform(inproj, outproj, x, y)
-    return out_x + 360, out_y
-
 model_x, model_y = convert_to_UKV_coords(xpos, ypos, crs_latlon, crs_rotated)
-
-def latlon_index_selector(desired_lat, desired_lon, lats, lons):
-    return (np.abs(lats - desired_lat)).argmin(), (np.abs(lons - desired_lon)).argmin()
-
 lat_index, lon_index = latlon_index_selector(model_y, model_x, lats, lons)
 true_model_x = lons[lon_index]
 true_model_y = lats[lat_index]
 
 # calculate theta
 theta_col = th.potential_temperature(T_cube.data[level_mask, lat_index, lon_index], p_theta_cube.data[level_mask, lat_index, lon_index])
-
 u_col = u_cube.data[level_mask, lat_index, lon_index]
 v_col = v_cube.data[level_mask, lat_index, lon_index]
-
-def uv_to_spddir(u, v):
-    return np.sqrt(u**2 + v**2),  np.arctan2(u, v)*180/np.pi+180
-
 spd_col, dir_col = uv_to_spddir(u_col, v_col)
 
 # N squared
@@ -65,10 +67,6 @@ N2U2 = N2 / u_col ** 2
 l2 = scorer_param(N2, u_col, height)
 
 fig = plot_profile(l2, height, N2U2, theta_col, spd_col, dir_col)
-year = filename[-18:-14]
-month = filename[-14:-12]
-day = filename[-12:-10]
-forecast_time = filename[-9:-7]
 
 true_x, true_y = transform(crs_rotated, crs_latlon, true_model_x, true_model_y)
 title = f'UKV ({true_x:.02f}, {true_y:.02f}) on {year}/{month}/{day} at {h} ({forecast_time})'
