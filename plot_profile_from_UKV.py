@@ -46,11 +46,12 @@ if __name__ == '__main__':
     level_mask = (height < max_height) & (height > min_height)
     height = height[level_mask]
 
-    # coordinates
+    # coordinates given in regular lat lon, convert to model's rotated pole system
+    # currently the code just plots the profiles at the nearest T grid point of the model.
     xpos = -10.35
     ypos = 51.9
-    lats = u_cube.coord('grid_latitude').points
-    lons = u_cube.coord('grid_longitude').points
+    lats = T_cube.coord('grid_latitude').points
+    lons = T_cube.coord('grid_longitude').points
 
     crs_latlon = ccrs.PlateCarree()
     # crs_rotated = u_cube.coord('grid_latitude').coord_system.as_cartopy_crs()
@@ -64,11 +65,13 @@ if __name__ == '__main__':
     # calculate theta
     theta_col = th.potential_temperature(T_cube.data[level_mask, lat_index, lon_index], p_theta_cube.data[level_mask, lat_index, lon_index])
 
-    # convert winds back to latlon from ukv rotated pole
-    # P's code interpolates u and v. staggered grids? need to check...
-    u_col = u_cube.data[level_mask, lat_index, lon_index]
-    v_col = v_cube.data[level_mask, lat_index, lon_index]
-    u_latlon, v_latlon = crs_latlon.transform_vectors(crs_rotated, np.full_like(u_col, true_model_x), np.full_like(u_col, true_model_y), u_col, v_col)
+    # interpolate winds onto T grid points (Arakawa C-grid) and convert back to latlon from ukv rotated pole
+    u_col = 0.5*(u_cube.data[level_mask, lat_index, lon_index-1] +
+                 u_cube.data[level_mask, lat_index, lon_index])
+    v_col = 0.5*(v_cube.data[level_mask, lat_index-1, lon_index] +
+                 v_cube.data[level_mask, lat_index, lon_index])
+    u_latlon, v_latlon = crs_latlon.transform_vectors(crs_rotated, np.full_like(u_col, true_model_x),
+                                                      np.full_like(u_col, true_model_y), u_col, v_col)
     spd_col, dir_col = uv_to_spddir(u_latlon, v_latlon)
 
     # N squared
