@@ -4,7 +4,7 @@ import iris.quickplot as qplt
 import numpy as np
 
 from iris_read import *
-from plot_profile_from_UKV import latlon_index_selector, convert_to_UKV_coords, uv_to_spddir
+from plot_profile_from_UKV import latlon_index_selector, convert_to_ukv_coords, uv_to_spddir
 import cartopy.crs as ccrs
 import tephi
 import thermodynamics as th
@@ -38,7 +38,7 @@ lons = u_cube.coord('grid_longitude').points
 crs_latlon = ccrs.PlateCarree()
 crs_rotated = u_cube.coord('grid_latitude').coord_system.as_cartopy_crs()
 
-model_x, model_y = convert_to_UKV_coords(xpos, ypos, crs_latlon, crs_rotated)
+model_x, model_y = convert_to_ukv_coords(xpos, ypos, crs_latlon, crs_rotated)
 
 lat_index, lon_index = latlon_index_selector(model_y, model_x, lats, lons)
 true_model_x = lons[lon_index]

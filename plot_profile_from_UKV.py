@@ -7,7 +7,7 @@ from plot_profile_from_txt import plot_profile, N_squared, scorer_param
 from pyproj import transform
 import cartopy.crs as ccrs
 
-def convert_to_UKV_coords(x, y, inproj, outproj):
+def convert_to_ukv_coords(x, y, inproj, outproj):
     """transforms coordinates given in system inproj to coordinates in outproj.
     works at least for UKV rotated pole."""
     out_x, out_y = transform(inproj, outproj, x, y)
@@ -54,7 +54,7 @@ lons = u_cube.coord('grid_longitude').points
 crs_latlon = ccrs.PlateCarree()
 crs_rotated = u_cube.coord('grid_latitude').coord_system.as_cartopy_crs()
 
-model_x, model_y = convert_to_UKV_coords(xpos, ypos, crs_latlon, crs_rotated)
+model_x, model_y = convert_to_ukv_coords(xpos, ypos, crs_latlon, crs_rotated)
 lat_index, lon_index = latlon_index_selector(model_y, model_x, lats, lons)
 true_model_x = lons[lon_index]
 true_model_y = lats[lat_index]
