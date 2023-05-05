@@ -53,7 +53,8 @@ lats = u_cube.coord('grid_latitude').points
 lons = u_cube.coord('grid_longitude').points
 
 crs_latlon = ccrs.PlateCarree()
-crs_rotated = u_cube.coord('grid_latitude').coord_system.as_cartopy_crs()
+# crs_rotated = u_cube.coord('grid_latitude').coord_system.as_cartopy_crs()
+crs_rotated = ccrs.RotatedPole(pole_longitude=177.5, pole_latitude=37.5)
 
 model_x, model_y = convert_to_ukv_coords(xpos, ypos, crs_latlon, crs_rotated)
 lat_index, lon_index = latlon_index_selector(model_y, model_x, lats, lons)
@@ -62,9 +63,12 @@ true_model_y = lats[lat_index]
 
 # calculate theta
 theta_col = th.potential_temperature(T_cube.data[level_mask, lat_index, lon_index], p_theta_cube.data[level_mask, lat_index, lon_index])
+
+# convert winds back to latlon from ukv rotated pole
 u_col = u_cube.data[level_mask, lat_index, lon_index]
 v_col = v_cube.data[level_mask, lat_index, lon_index]
-spd_col, dir_col = uv_to_spddir(u_col, v_col)
+u_latlon, v_latlon = crs_latlon.transform_vectors(crs_rotated, np.full_like(u_col, true_model_x), np.full_like(u_col, true_model_y), u_col, v_col)
+spd_col, dir_col = uv_to_spddir(u_latlon, v_latlon)
 
 # N squared
 N2 = N_squared(theta_col, height)
