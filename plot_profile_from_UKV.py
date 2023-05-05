@@ -73,7 +73,7 @@ l2 = scorer_param(N2, u_col, height)
 
 fig = plot_profile(l2, height, N2U2, theta_col, spd_col, dir_col)
 
-true_x, true_y = transform(crs_rotated, crs_latlon, true_model_x, true_model_y)
+true_x, true_y = crs_latlon.transform_point(true_model_x, true_model_y, crs_rotated)
 title = f'UKV ({true_x:.02f}, {true_y:.02f}) on {year}/{month}/{day} at {h} ({forecast_time})'
 plt.suptitle(title)
 plt.tight_layout()
