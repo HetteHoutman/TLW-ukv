@@ -7,18 +7,19 @@ from plot_profile_from_txt import plot_profile, N_squared, scorer_param
 from pyproj import transform
 import cartopy.crs as ccrs
 
-def convert_to_ukv_coords(x, y, inproj, outproj):
-    """transforms coordinates given in system inproj to coordinates in outproj.
+def convert_to_ukv_coords(x, y, in_crs, out_crs):
+    """transforms coordinates given in crs in_crs to coordinates in crs out_crs.
     works at least for UKV rotated pole."""
-    out_x, out_y = transform(inproj, outproj, x, y)
+    out_x, out_y = out_crs.transform_point(x, y, in_crs)
     return out_x + 360, out_y
 
 def latlon_index_selector(desired_lat, desired_lon, lats, lons):
-    """returns the indices of those coordinates in arrays lats, lons closest to the desired lat and lon"""
+    """returns the indices of those coordinates in arrays lats, lons closest to the desired lat and lon.
+    Taken from Peter Clark's code."""
     return (np.abs(lats - desired_lat)).argmin(), (np.abs(lons - desired_lon)).argmin()
 
 def uv_to_spddir(u, v):
-    """converts u and v wind fields to wind speed and direction"""
+    """converts u and v wind fields to wind speed and direction. Taken from Peter Clark's code."""
     return np.sqrt(u**2 + v**2),  np.arctan2(u, v)*180/np.pi+180
 
 # read file and load fields
