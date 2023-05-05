@@ -1,11 +1,10 @@
+import cartopy.crs as ccrs
 import matplotlib.pyplot as plt
-import numpy as np
 
 import thermodynamics as th
 from iris_read import *
 from plot_profile_from_txt import plot_profile, N_squared, scorer_param
-from pyproj import transform
-import cartopy.crs as ccrs
+
 
 def convert_to_ukv_coords(x, y, in_crs, out_crs):
     """transforms coordinates given in crs in_crs to coordinates in crs out_crs.
@@ -75,6 +74,7 @@ N2 = N_squared(theta_col, height)
 N2U2 = N2 / u_col ** 2
 l2 = scorer_param(N2, u_col, height)
 
+# plot
 fig = plot_profile(l2, height, N2U2, theta_col, spd_col, dir_col)
 
 true_x, true_y = crs_latlon.transform_point(true_model_x, true_model_y, crs_rotated)
