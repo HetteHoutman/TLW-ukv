@@ -43,8 +43,8 @@ def scorer_param(N2, wind, height):
 if __name__ == '__main__':
 
   txtfile = sys.argv[1]
-  station = txtfile[-20:-15]
 
+  station = txtfile[-20:-15]
   year = txtfile[-14:-12]
   month = txtfile[-12:-10]
   day = txtfile[-10:-8]

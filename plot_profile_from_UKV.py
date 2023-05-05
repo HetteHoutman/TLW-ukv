@@ -64,6 +64,7 @@ true_model_y = lats[lat_index]
 theta_col = th.potential_temperature(T_cube.data[level_mask, lat_index, lon_index], p_theta_cube.data[level_mask, lat_index, lon_index])
 
 # convert winds back to latlon from ukv rotated pole
+# P's code interpolates u and v. staggered grids? need to check...
 u_col = u_cube.data[level_mask, lat_index, lon_index]
 v_col = v_cube.data[level_mask, lat_index, lon_index]
 u_latlon, v_latlon = crs_latlon.transform_vectors(crs_rotated, np.full_like(u_col, true_model_x), np.full_like(u_col, true_model_y), u_col, v_col)
