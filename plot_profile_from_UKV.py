@@ -8,15 +8,20 @@ from pyproj import transform
 import cartopy.crs as ccrs
 
 def convert_to_UKV_coords(x, y, inproj, outproj):
+    """transforms coordinates given in system inproj to coordinates in outproj.
+    works at least for UKV rotated pole."""
     out_x, out_y = transform(inproj, outproj, x, y)
     return out_x + 360, out_y
 
 def latlon_index_selector(desired_lat, desired_lon, lats, lons):
+    """returns the indices of those coordinates in arrays lats, lons closest to the desired lat and lon"""
     return (np.abs(lats - desired_lat)).argmin(), (np.abs(lons - desired_lon)).argmin()
 
 def uv_to_spddir(u, v):
+    """converts u and v wind fields to wind speed and direction"""
     return np.sqrt(u**2 + v**2),  np.arctan2(u, v)*180/np.pi+180
 
+# read file and load fields
 indir = '/home/users/sw825517/Documents/ukv_data/'
 filename = indir + 'prodm_op_ukv_20150414_09_004.pp'
 
@@ -29,19 +34,18 @@ h = 12
 p_rho_cube = read_variable(filename, 407, h)
 u_cube = read_variable(filename, 2, h)
 v_cube = read_variable(filename, 3, h)
-
 p_theta_cube = read_variable(filename, 408, h)
 T_cube = read_variable(filename, 16004, h)
 q_cube = read_variable(filename, 10, h)
-# only plot up to certain height
+
+# only plot certain heights
 min_height = 20
 max_height = 5000
-
 height = u_cube.coord('level_height').points
 level_mask = (height < max_height) & (height > min_height)
-# coordinates
-
 height = height[level_mask]
+
+# coordinates
 xpos = -10.35
 ypos = 51.9
 lats = u_cube.coord('grid_latitude').points
