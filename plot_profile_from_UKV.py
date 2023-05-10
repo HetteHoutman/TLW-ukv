@@ -32,7 +32,6 @@ if __name__ == '__main__':
     forecast_time = filename[-9:-7]
     h = 12
 
-    p_rho_cube = read_variable(filename, 407, h)
     u_cube = read_variable(filename, 2, h)
     v_cube = read_variable(filename, 3, h)
     p_theta_cube = read_variable(filename, 408, h)
