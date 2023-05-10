@@ -62,7 +62,8 @@ if __name__ == '__main__':
     true_model_y = lats[lat_index]
 
     # calculate theta
-    theta_col = th.potential_temperature(T_cube.data[level_mask, lat_index, lon_index], p_theta_cube.data[level_mask, lat_index, lon_index])
+    theta_col = th.potential_temperature(T_cube.data[level_mask, lat_index, lon_index],
+                                         p_theta_cube.data[level_mask, lat_index, lon_index])
 
     # interpolate winds onto T grid points (Arakawa C-grid) and convert back to latlon from ukv rotated pole
     u_col = 0.5*(u_cube.data[level_mask, lat_index, lon_index-1] +

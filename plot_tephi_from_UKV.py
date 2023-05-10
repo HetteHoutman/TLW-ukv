@@ -51,7 +51,14 @@ true_model_y = lats[lat_index]
 # extract columns at appropriate location
 pt_col = p_theta_cube.data[T_mask, lat_index, lon_index]
 T_col = T_cube.data[T_mask, lat_index, lon_index]
-q_col = q_cube.data[1:][T_mask, lat_index, lon_index]
+
+# check level heights
+if q_cube.coord('level_height').points[0] == T_cube.coord('level_height').points[0]:
+    q_col = q_cube.data[T_mask, lat_index, lon_index]
+elif q_cube.coord('level_height').points[1] == T_cube.coord('level_height').points[0]:
+    q_col = q_cube.data[1:][T_mask, lat_index, lon_index]
+else:
+    raise ValueError('Double check the T and q level_heights - they do not match')
 
 # interpolate winds as we're Arakawa C-grid
 u_col = 0.5*(u_cube.data[rho_mask, lat_index, lon_index-1] +
