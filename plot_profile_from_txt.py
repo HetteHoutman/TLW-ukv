@@ -54,6 +54,7 @@ if __name__ == '__main__':
 
   # read file
   data = pd.read_csv(txtfile, skiprows=[0,2,3], delim_whitespace=True)
+  data = data[:100]
   data['SMPS'] = data.SKNT * 1.852 / 3.6
   data.drop('SKNT', axis=1, inplace=True)
 
