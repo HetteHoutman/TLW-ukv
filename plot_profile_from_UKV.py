@@ -12,10 +12,10 @@ def convert_to_ukv_coords(x, y, in_crs, out_crs):
     out_x, out_y = out_crs.transform_point(x, y, in_crs)
     return out_x + 360, out_y
 
-def latlon_index_selector(desired_lat, desired_lon, lats, lons):
+def index_selector(desired_value, array):
     """returns the indices of those coordinates in arrays lats, lons closest to the desired lat and lon.
     Taken from Peter Clark's code."""
-    return (np.abs(lats - desired_lat)).argmin(), (np.abs(lons - desired_lon)).argmin()
+    return (np.abs(array - desired_value)).argmin()
 
 def uv_to_spddir(u, v):
     """converts u and v wind fields to wind speed and direction. Taken from Peter Clark's code."""
@@ -57,7 +57,8 @@ if __name__ == '__main__':
     crs_rotated = ccrs.RotatedPole(pole_longitude=177.5, pole_latitude=37.5)
 
     model_x, model_y = convert_to_ukv_coords(xpos, ypos, crs_latlon, crs_rotated)
-    lat_index, lon_index = latlon_index_selector(model_y, model_x, lats, lons)
+    lat_index = index_selector(model_y, lats)
+    lon_index = index_selector(model_x, lons)
     true_model_x = lons[lon_index]
     true_model_y = lats[lat_index]
 
