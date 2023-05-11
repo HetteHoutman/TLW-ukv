@@ -91,8 +91,8 @@ def get_grid_latlon_from_rotated(cube):
     
     rot_lons, rot_lats = np.meshgrid(r_lons, r_lats)
     
-    true_lons = np.zeros_like(theta.data[0,:,:])
-    true_lats = np.zeros_like(theta.data[0,:,:])
+    true_lons = np.zeros_like(cube.data[0,:,:])
+    true_lats = np.zeros_like(cube.data[0,:,:])
     
     for i, r_lon in enumerate(r_lons):
         for j, r_lat in enumerate(r_lats):
