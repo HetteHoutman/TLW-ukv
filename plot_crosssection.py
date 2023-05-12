@@ -52,8 +52,10 @@ plt.show()
 fig, ax = plt.subplots(1,1, subplot_kw={'projection': crs_latlon})
 ax.coastlines()
 
-w_750 = w_cube[w_cube.coord('model_level_number').points == 20]
-con = iplt.contourf(w_750[0], coords=['longitude', 'latitude'])
+map_height = 750
+height_index = index_selector(map_height, w_cube.coord('model_level_number').points)
+w_single_level = w_cube[height_index]
+con = iplt.contourf(w_single_level, coords=['longitude', 'latitude'])
 plt.colorbar(con, label='Upward air velocity / m/s')
 plt.plot(grid_latlon['true_lons'][lat_index, lon_index_west:lon_index_east+1],
          grid_latlon['true_lats'][lat_index, lon_index_west:lon_index_east+1],
@@ -61,5 +63,6 @@ plt.plot(grid_latlon['true_lons'][lat_index, lon_index_west:lon_index_east+1],
 
 ax.set_xlabel('True Longitude / deg')
 ax.set_ylabel('True Latitude / deg')
-plt.title(f'UKV on {year}/{month}/{day} at {h} ({forecast_time})')
+plt.title(f'UKV height {w_cube.coord("level_height").points[height_index]} '
+          f'm on {year}/{month}/{day} at {h} ({forecast_time})')
 plt.show()
