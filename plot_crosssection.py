@@ -1,10 +1,7 @@
-from iris_read import *
-import numpy as np
-import iris
-import matplotlib.pyplot as plt
 import cartopy.crs as ccrs
 import iris.plot as iplt
-
+import matplotlib.pyplot as plt
+from iris_read import *
 from plot_profile_from_UKV import convert_to_ukv_coords, index_selector
 from plot_xsect import get_grid_latlon_from_rotated, add_grid_latlon_to_cube
 
@@ -53,7 +50,7 @@ fig, ax = plt.subplots(1,1, subplot_kw={'projection': crs_latlon})
 ax.coastlines()
 
 map_height = 750
-height_index = index_selector(map_height, w_cube.coord('model_level_number').points)
+height_index = index_selector(map_height, w_cube.coord('level_height').points)
 w_single_level = w_cube[height_index]
 con = iplt.contourf(w_single_level, coords=['longitude', 'latitude'])
 plt.colorbar(con, label='Upward air velocity / m/s')
@@ -63,6 +60,6 @@ plt.plot(grid_latlon['true_lons'][lat_index, lon_index_west:lon_index_east+1],
 
 ax.set_xlabel('True Longitude / deg')
 ax.set_ylabel('True Latitude / deg')
-plt.title(f'UKV height {w_cube.coord("level_height").points[height_index]} '
-          f'm on {year}/{month}/{day} at {h} ({forecast_time})')
+plt.title(f'UKV {w_cube.coord("level_height").points[height_index]:.0f} '
+          f'm {year}/{month}/{day} at {h}h ({forecast_time})')
 plt.show()
