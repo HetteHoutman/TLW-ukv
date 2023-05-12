@@ -48,5 +48,18 @@ plt.ylabel('Level height / m')
 plt.title(f'Cross-section approximately along lat {lat} deg')
 plt.colorbar(con, label='Upward air velocity / m/s')
 plt.show()
-print('now plot the cross section on a map')
-# xsect = w_cube.ex
+
+fig, ax = plt.subplots(1,1, subplot_kw={'projection': crs_latlon})
+ax.coastlines()
+
+w_750 = w_cube[w_cube.coord('model_level_number').points == 20]
+con = iplt.contourf(w_750[0], coords=['longitude', 'latitude'])
+plt.colorbar(con, label='Upward air velocity / m/s')
+plt.plot(grid_latlon['true_lons'][lat_index, lon_index_west:lon_index_east+1],
+         grid_latlon['true_lats'][lat_index, lon_index_west:lon_index_east+1],
+         color='yellow')
+
+ax.set_xlabel('True Longitude / deg')
+ax.set_ylabel('True Latitude / deg')
+plt.title(f'UKV on {year}/{month}/{day} at {h} ({forecast_time})')
+plt.show()
