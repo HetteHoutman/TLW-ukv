@@ -13,8 +13,7 @@ def convert_to_ukv_coords(x, y, in_crs, out_crs):
     return out_x + 360, out_y
 
 def index_selector(desired_value, array):
-    """returns the indices of those coordinates in arrays lats, lons closest to the desired lat and lon.
-    Taken from Peter Clark's code."""
+    """returns the index of the value in array that is closest to desired_value"""
     return (np.abs(array - desired_value)).argmin()
 
 def uv_to_spddir(u, v):
