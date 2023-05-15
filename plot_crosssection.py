@@ -28,6 +28,83 @@ def check_level_heights(q, t):
     return q
 
 
+def plot_xsect(w, theta, RH, max_height=5000, cmap=mpl_cm.get_cmap("brewer_PuOr_11")):
+    """plots the cross-section with filled contours of w and normal contours of theta and RH"""
+    plt.figure()
+
+    w_height_mask = (w.coord('level_height').points < max_height)
+    t_height_mask = (theta.coord('level_height').points < max_height)
+
+    # currently plots cross-section along a model latitude!
+    # this is not the same as a true latitude (even though that is displayed on the axis)!
+    w_section = w[w_height_mask, lat_index, lon_index_west: lon_index_east + 1]
+    theta_section = theta[t_height_mask, lat_index, lon_index_west: lon_index_east + 1]
+    RH_section = RH[t_height_mask, lat_index, lon_index_west: lon_index_east + 1]
+
+    w_con = iplt.contourf(w_section, coords=['longitude', 'level_height'],
+                          cmap=cmap, norm=centred_cnorm(w_section))
+    theta_con = iplt.contour(theta_section, coords=['longitude', 'level_height'],
+                             colors='k', linestyles='--')
+    RH_con = iplt.contour(RH_section, levels=[0.75], coords=['longitude', 'level_height'],
+                          colors='gray', linestyles='-.')
+
+    plt.clabel(theta_con)
+    plt.xlabel('True Longitude / deg')
+    plt.ylabel('Level height / m')
+    plt.title(f'Cross-section approximately along lat {lat} deg')
+    plt.colorbar(w_con, label='Upward air velocity / m/s')
+
+    plt.tight_layout()
+    plt.savefig(f'plots/xsect_lat{lat}_{year}{month}{day}_{h}.png', dpi=300)
+    plt.show()
+
+
+def plot_xsect_map(w, map_height=1000, cmap=mpl_cm.get_cmap("brewer_PuOr_11"), bottomleft=(-10.5, 50.5), topright=(-5, 56)):
+    """
+    Plots the map indicating the cross-section, in addition to the w field.
+    Parameters
+    ----------
+    w
+    map_height
+    cmap
+    bottomleft : tuple
+        lon/lat for the bottom left point of the map
+    topright : tuple
+        lon/lat for the top right point of the map
+    """
+    fig, ax = plt.subplots(1, 1, subplot_kw={'projection': crs_latlon})
+    ax.coastlines()
+
+    height_index = w.coord('level_height').nearest_neighbour_index(map_height)
+
+    bl_model = crs_rotated.transform_point(bottomleft[0], bottomleft[1], crs_latlon)
+    tr_model = crs_rotated.transform_point(topright[0], topright[1], crs_latlon)
+
+    w_single_level = w[1].intersection(grid_latitude=(bl_model[1], tr_model[1]),
+                                          grid_longitude=(bl_model[0], tr_model[0]))
+    w_con = iplt.contourf(w_single_level, coords=['longitude', 'latitude'],
+                          cmap=cmap, norm=centred_cnorm(w_single_level))
+
+    ax.plot(grid_latlon['true_lons'][lat_index, lon_index_west:lon_index_east + 1],
+            grid_latlon['true_lats'][lat_index, lon_index_west:lon_index_east + 1],
+            color='k', zorder=50)
+    plt.scatter(*sonde_locs['valentia'], marker='*', color='r', edgecolors='k', s=250, zorder=100)
+
+    ax.gridlines(crs=crs_latlon, draw_labels=True)
+    ax.set_xlabel('True Longitude / deg')
+    ax.set_ylabel('True Latitude / deg')
+    plt.colorbar(w_con, label='Upward air velocity / m/s',
+                 location='bottom',
+                 # orientation='vertical'
+                 )
+    plt.title(f'UKV {w.coord("level_height").points[height_index]:.0f} '
+              f'm {year}/{month}/{day} at {h}h ({forecast_time})')
+
+    plt.tight_layout()
+    plt.savefig(f'plots/xsect_map_lat{lat}_{year}{month}{day}_{h}.png', dpi=300)
+    plt.show()
+
+
 if __name__ == '__main__':
     # read file
     indir = '/home/users/sw825517/Documents/ukv_data/'
@@ -85,70 +162,6 @@ if __name__ == '__main__':
     lon_index_west = index_selector(model_westbound, grid_lons)
     lon_index_east = index_selector(model_eastbound, grid_lons)
 
-    cmap = mpl_cm.get_cmap("brewer_PuOr_11")
+    plot_xsect_map(w_cube)
 
-    fig, ax = plt.subplots(1,1, subplot_kw={'projection': crs_latlon})
-    ax.coastlines()
-
-    map_height = 1000
-    height_index = w_cube.coord('level_height').nearest_neighbour_index(map_height)
-    bl = (-10.5, 50.5)
-    tr = (-5, 56)
-
-    bl_model = crs_rotated.transform_point(bl[0], bl[1], crs_latlon)
-    tr_model = crs_rotated.transform_point(tr[0], tr[1], crs_latlon)
-
-    w_single_level = w_cube[1].intersection(grid_latitude=(bl_model[1], tr_model[1]),
-                                            grid_longitude=(bl_model[0], tr_model[0]))
-
-
-    w_con = iplt.contourf(w_single_level, coords=['longitude', 'latitude'],
-                          cmap=cmap, norm=centred_cnorm(w_single_level))
-    ax.plot(grid_latlon['true_lons'][lat_index, lon_index_west:lon_index_east+1],
-             grid_latlon['true_lats'][lat_index, lon_index_west:lon_index_east+1],
-             color='k', zorder=50)
-    plt.scatter(*sonde_locs['valentia'], marker='*', color='r', edgecolors='k', s=250, zorder=100)
-
-    ax.gridlines(crs=crs_latlon, draw_labels=True)
-    ax.set_xlabel('True Longitude / deg')
-    ax.set_ylabel('True Latitude / deg')
-    plt.colorbar(w_con, label='Upward air velocity / m/s',
-                 location='bottom',
-                 # orientation='vertical'
-                 )
-    plt.title(f'UKV {w_cube.coord("level_height").points[height_index]:.0f} '
-              f'm {year}/{month}/{day} at {h}h ({forecast_time})')
-
-    plt.tight_layout()
-    plt.savefig(f'plots/xsect_map_lat{lat}_{year}{month}{day}_{h}.png', dpi=300)
-    plt.show()
-
-    plt.figure()
-    # max height
-    max_height = 5000
-    w_height_mask = (w_cube.coord('level_height').points < max_height)
-    t_height_mask = (t_cube.coord('level_height').points < max_height)
-
-    # currently plots cross-section along a model latitude!
-    # this is not the same as a true latitude (even though that is displayed on the axis)!
-    w_section = w_cube[w_height_mask, lat_index, lon_index_west: lon_index_east + 1]
-    theta_section = theta_cube[t_height_mask, lat_index, lon_index_west: lon_index_east + 1]
-    RH_section = RH_cube[t_height_mask, lat_index, lon_index_west: lon_index_east + 1]
-
-    w_con = iplt.contourf(w_section, coords=['longitude', 'level_height'],
-                          cmap=cmap, norm=centred_cnorm(w_section))
-
-    theta_con = iplt.contour(theta_section, coords=['longitude', 'level_height'],
-                             colors='k', linestyles='--')
-
-    RH_con = iplt.contour(RH_section, levels=[0.75], coords=['longitude', 'level_height'],
-                             colors='gray', linestyles='-.')
-    plt.clabel(theta_con)
-
-    plt.xlabel('True Longitude / deg')
-    plt.ylabel('Level height / m')
-    plt.title(f'Cross-section approximately along lat {lat} deg')
-    plt.colorbar(w_con, label='Upward air velocity / m/s')
-    plt.tight_layout()
-    plt.savefig(f'plots/xsect_lat{lat}_{year}{month}{day}_{h}.png', dpi=300)
-    plt.show()
+    plot_xsect(w_cube, theta_cube, RH_cube)
