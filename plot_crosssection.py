@@ -1,15 +1,16 @@
 import cartopy.crs as ccrs
 import iris.plot as iplt
-import matplotlib.pyplot as plt
-import matplotlib.colors as colors
 import matplotlib.cm as mpl_cm
+import matplotlib.colors as colors
+import matplotlib.pyplot as plt
 
 import thermodynamics as th
 from iris_read import *
-from plot_profile_from_UKV import convert_to_ukv_coords, index_selector
-from plot_xsect import get_grid_latlon_from_rotated, add_grid_latlon_to_cube, get_coord_index
+from plot_profile_from_UKV import convert_to_ukv_coords
+from plot_xsect import get_grid_latlon_from_rotated, add_grid_latlon_to_cube
 from sonde_locs import sonde_locs
 from thermodynamics import potential_temperature
+
 
 def centred_cnorm(cube):
     w_min = cube.data.min()
@@ -149,18 +150,14 @@ if __name__ == '__main__':
     lonbound_west = -10.5
     lonbound_east = -8.5
 
-    grid_lats = w_cube.coord('grid_latitude').points
-    grid_lons = w_cube.coord('grid_longitude').points
-
     crs_latlon = ccrs.PlateCarree()
     crs_rotated = w_cube.coord('grid_latitude').coord_system.as_cartopy_crs()
 
     model_westbound, model_lat = convert_to_ukv_coords(lonbound_west, lat, crs_latlon, crs_rotated)
     model_eastbound, temp = convert_to_ukv_coords(lonbound_east, lat, crs_latlon, crs_rotated)
-    # this could be replaced by built-in function nearest_neighbour_index
-    lat_index = index_selector(model_lat, grid_lats)
-    lon_index_west = index_selector(model_westbound, grid_lons)
-    lon_index_east = index_selector(model_eastbound, grid_lons)
+    lat_index = w_cube.coord('grid_latitude').nearest_neighbour_index(model_lat)
+    lon_index_west = w_cube.coord('grid_longitude').nearest_neighbour_index(model_westbound)
+    lon_index_east = w_cube.coord('grid_longitude').nearest_neighbour_index(model_eastbound)
 
     plot_xsect_map(w_cube)
 
