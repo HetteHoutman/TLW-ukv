@@ -4,6 +4,7 @@ import iris.quickplot as qplt
 import numpy as np
 
 from iris_read import *
+from plot_crosssection import check_level_heights
 from plot_profile_from_UKV import index_selector, convert_to_ukv_coords, uv_to_spddir
 import cartopy.crs as ccrs
 import tephi
@@ -23,6 +24,8 @@ v_cube = read_variable(filename, 3, h)
 p_theta_cube = read_variable(filename, 408, h)
 T_cube = read_variable(filename, 16004, h)
 q_cube = read_variable(filename, 10, h)
+
+q_cube = check_level_heights(q_cube, T_cube)
 
 # only plot up to certain T_height
 min_height = 0
@@ -52,14 +55,7 @@ true_model_y = lats[lat_index]
 # extract columns at appropriate location
 pt_col = p_theta_cube.data[T_mask, lat_index, lon_index]
 T_col = T_cube.data[T_mask, lat_index, lon_index]
-
-# check level heights
-if q_cube.coord('level_height').points[0] == T_cube.coord('level_height').points[0]:
-    q_col = q_cube.data[T_mask, lat_index, lon_index]
-elif q_cube.coord('level_height').points[1] == T_cube.coord('level_height').points[0]:
-    q_col = q_cube.data[1:][T_mask, lat_index, lon_index]
-else:
-    raise ValueError('Double check the T and q level_heights - they do not match')
+q_col = q_cube.data[T_mask, lat_index, lon_index]
 
 # interpolate winds as we're Arakawa C-grid
 u_col = 0.5*(u_cube.data[rho_mask, lat_index, lon_index-1] +

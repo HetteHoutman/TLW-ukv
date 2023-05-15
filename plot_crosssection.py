@@ -17,9 +17,18 @@ def centred_cnorm(cube):
     range_max = max(abs(w_max), abs(w_min))
     return colors.Normalize(vmin=-range_max, vmax=range_max)
 
+def check_level_heights(q, t):
+    """check whether q and Temperature cubes have same level heights and adjust if necessary."""
+    if q.coord('level_height').points[0] == t.coord('level_height').points[0]:
+        pass
+    elif q.coord('level_height').points[1] == t.coord('level_height').points[0]:
+        q = q[1:]
+    else:
+        raise ValueError('Double check the T and q level_heights - they do not match')
+    return q
+
 
 if __name__ == '__main__':
-
     # read file
     indir = '/home/users/sw825517/Documents/ukv_data/'
     filename = indir + 'prodm_op_ukv_20150414_09_004.pp'
@@ -35,13 +44,7 @@ if __name__ == '__main__':
     p_cube = read_variable(filename, 408, h)
     q_cube = read_variable(filename, 10, h)
 
-    # check level heights
-    if q_cube.coord('level_height').points[0] == t_cube.coord('level_height').points[0]:
-        pass
-    elif q_cube.coord('level_height').points[1] == t_cube.coord('level_height').points[0]:
-        q_cube = q_cube[1:]
-    else:
-        raise ValueError('Double check the T and q level_heights - they do not match')
+    q_cube = check_level_heights(q_cube, t_cube)
 
     # add true lat lon
     grid_latlon = get_grid_latlon_from_rotated(w_cube)
