@@ -31,7 +31,7 @@ def check_level_heights(q, t):
     return q
 
 
-def plot_xsect(w, theta, RH, max_height=5000, cmap=mpl_cm.get_cmap("brewer_PuOr_11"),
+def plot_xsect(w, theta, RH, orog_cube, max_height=5000, cmap=mpl_cm.get_cmap("brewer_PuOr_11"),
                coords=None):
     """plots the cross-section with filled contours of w and normal contours of theta and RH"""
     if coords is None:
@@ -48,6 +48,7 @@ def plot_xsect(w, theta, RH, max_height=5000, cmap=mpl_cm.get_cmap("brewer_PuOr_
     w_section = w[w_height_mask, lat_index, lon_index_west: lon_index_east + 1]
     theta_section = theta[t_height_mask, lat_index, lon_index_west: lon_index_east + 1]
     RH_section = RH[t_height_mask, lat_index, lon_index_west: lon_index_east + 1]
+    orog_section = orog_cube[lat_index, lon_index_west:lon_index_east + 1]
 
     w_con = iplt.contourf(w_section, coords=coords,
                           cmap=cmap, norm=centred_cnorm(w_section))
@@ -55,6 +56,10 @@ def plot_xsect(w, theta, RH, max_height=5000, cmap=mpl_cm.get_cmap("brewer_PuOr_
                              colors='k', linestyles='--')
     RH_con = iplt.contour(RH_section, levels=[0.75], coords=coords,
                           colors='0.5', linestyles='-.')
+
+    iplt.plot(orog_section.coord('longitude'), orog_section, color='k')
+    plt.fill_between(orog_section.coord('longitude').points, orog_section.data, where=orog_section.data>0, color='k',
+                     interpolate=True)
 
     plt.ylim((0,max_height))
     plt.clabel(theta_con)
@@ -137,11 +142,11 @@ if __name__ == '__main__':
     # NB might be easier not to use read_variable but just iris.load
     orog_cube = read_variable(orog_file, 33, 9)
 
-
     # add true lat lon
     grid_latlon = get_grid_latlon_from_rotated(w_cube)
     add_grid_latlon_to_cube(w_cube, grid_latlon)
     add_grid_latlon_to_cube(p_cube, grid_latlon)
+    add_grid_latlon_to_cube(orog_cube, grid_latlon)
 
     # convert to theta and make cube
     # this ignores things like the stash code, but is probably fine for now
@@ -187,4 +192,4 @@ if __name__ == '__main__':
     lon_index_east = w_cube.coord('grid_longitude').nearest_neighbour_index(model_eastbound)
 
     plot_xsect_map(w_cube)
-    plot_xsect(w_cube, theta_cube, RH_cube)
+    plot_xsect(w_cube, theta_cube, RH_cube, orog_cube)
