@@ -4,6 +4,7 @@ import iris.plot as iplt
 import matplotlib.cm as mpl_cm
 import matplotlib.colors as colors
 import matplotlib.pyplot as plt
+import numpy as np
 
 import thermodynamics as th
 from iris_read import *
@@ -38,17 +39,8 @@ def plot_xsect(w, theta, RH, max_height=5000, cmap=mpl_cm.get_cmap("brewer_PuOr_
 
     plt.figure()
 
-    # if vertical coordinate is 3-dimensional (such as with altitude), need to select slice, else not
-    # if w_cube.coord(coords[1]).ndim == 3:
-    #     w_height_mask = (w.coord(coords[1]).points[:, lat_index, lon_index_west:lon_index_east+1] < max_height)
-    #     t_height_mask = (theta.coord(coords[1]).points[:, lat_index, lon_index_west:lon_index_east+1] < max_height)
-    # else:
-    #     w_height_mask = (w.coord(coords[1]).points < max_height)
-    #     t_height_mask = (theta.coord(coords[1]).points < max_height)
-
-    w_height_mask = (w.coord('level_height').points < max_height)
-    t_height_mask = (theta.coord('level_height').points < max_height)
-
+    w_height_mask = (w.coord('level_height').points < 1.1 * max_height)
+    t_height_mask = (theta.coord('level_height').points < 1.1 * max_height)
 
     # currently plots cross-section along a model latitude!
     # this is not the same as a true latitude (even though that is displayed on the axis)!
@@ -62,8 +54,9 @@ def plot_xsect(w, theta, RH, max_height=5000, cmap=mpl_cm.get_cmap("brewer_PuOr_
     theta_con = iplt.contour(theta_section, coords=coords,
                              colors='k', linestyles='--')
     RH_con = iplt.contour(RH_section, levels=[0.75], coords=coords,
-                          colors='gray', linestyles='-.')
+                          colors='0.5', linestyles='-.')
 
+    plt.ylim((0,max_height))
     plt.clabel(theta_con)
     plt.xlabel(f'{w_section.coord(coords[0]).name().capitalize()} / deg')
     plt.ylabel(f'{w_section.coord(coords[1]).name().capitalize()} / {str(w_section.coord(coords[1]).units)}')
