@@ -1,4 +1,5 @@
 import cartopy.crs as ccrs
+import iris.coords
 import iris.plot as iplt
 import matplotlib.cm as mpl_cm
 import matplotlib.colors as colors
@@ -7,7 +8,7 @@ import matplotlib.pyplot as plt
 import thermodynamics as th
 from iris_read import *
 from plot_profile_from_UKV import convert_to_ukv_coords
-from plot_xsect import get_grid_latlon_from_rotated, add_grid_latlon_to_cube
+from plot_xsect import get_grid_latlon_from_rotated, add_grid_latlon_to_cube, get_coord_index
 from sonde_locs import sonde_locs
 from thermodynamics import potential_temperature
 
@@ -29,29 +30,43 @@ def check_level_heights(q, t):
     return q
 
 
-def plot_xsect(w, theta, RH, max_height=5000, cmap=mpl_cm.get_cmap("brewer_PuOr_11")):
+def plot_xsect(w, theta, RH, max_height=5000, cmap=mpl_cm.get_cmap("brewer_PuOr_11"),
+               coords=None):
     """plots the cross-section with filled contours of w and normal contours of theta and RH"""
+    if coords is None:
+        coords = ['longitude', 'altitude']
+
     plt.figure()
+
+    # if vertical coordinate is 3-dimensional (such as with altitude), need to select slice, else not
+    # if w_cube.coord(coords[1]).ndim == 3:
+    #     w_height_mask = (w.coord(coords[1]).points[:, lat_index, lon_index_west:lon_index_east+1] < max_height)
+    #     t_height_mask = (theta.coord(coords[1]).points[:, lat_index, lon_index_west:lon_index_east+1] < max_height)
+    # else:
+    #     w_height_mask = (w.coord(coords[1]).points < max_height)
+    #     t_height_mask = (theta.coord(coords[1]).points < max_height)
 
     w_height_mask = (w.coord('level_height').points < max_height)
     t_height_mask = (theta.coord('level_height').points < max_height)
 
+
     # currently plots cross-section along a model latitude!
     # this is not the same as a true latitude (even though that is displayed on the axis)!
+    # NB uses lat index etc as global variables!!
     w_section = w[w_height_mask, lat_index, lon_index_west: lon_index_east + 1]
     theta_section = theta[t_height_mask, lat_index, lon_index_west: lon_index_east + 1]
     RH_section = RH[t_height_mask, lat_index, lon_index_west: lon_index_east + 1]
 
-    w_con = iplt.contourf(w_section, coords=['longitude', 'level_height'],
+    w_con = iplt.contourf(w_section, coords=coords,
                           cmap=cmap, norm=centred_cnorm(w_section))
-    theta_con = iplt.contour(theta_section, coords=['longitude', 'level_height'],
+    theta_con = iplt.contour(theta_section, coords=coords,
                              colors='k', linestyles='--')
-    RH_con = iplt.contour(RH_section, levels=[0.75], coords=['longitude', 'level_height'],
+    RH_con = iplt.contour(RH_section, levels=[0.75], coords=coords,
                           colors='gray', linestyles='-.')
 
     plt.clabel(theta_con)
-    plt.xlabel('True Longitude / deg')
-    plt.ylabel('Level height / m')
+    plt.xlabel(f'{w_section.coord(coords[0]).name().capitalize()} / deg')
+    plt.ylabel(f'{w_section.coord(coords[1]).name().capitalize()} / {str(w_section.coord(coords[1]).units)}')
     plt.title(f'Cross-section approximately along lat {lat} deg')
     plt.colorbar(w_con, label='Upward air velocity / m/s')
 
@@ -60,7 +75,8 @@ def plot_xsect(w, theta, RH, max_height=5000, cmap=mpl_cm.get_cmap("brewer_PuOr_
     plt.show()
 
 
-def plot_xsect_map(w, map_height=1000, cmap=mpl_cm.get_cmap("brewer_PuOr_11"), bottomleft=(-10.5, 50.5), topright=(-5, 56)):
+def plot_xsect_map(w, map_height=1000, cmap=mpl_cm.get_cmap("brewer_PuOr_11"),
+                   bottomleft=(-10.5, 50.5), topright=(-5, 56)):
     """
     Plots the map indicating the cross-section, in addition to the w field.
     Parameters
@@ -124,6 +140,11 @@ if __name__ == '__main__':
 
     q_cube = check_level_heights(q_cube, t_cube)
 
+    orog_file = indir + 'prods_op_ukv_20150414_09_000.pp'
+    # NB might be easier not to use read_variable but just iris.load
+    orog_cube = read_variable(orog_file, 33, 9)
+
+
     # add true lat lon
     grid_latlon = get_grid_latlon_from_rotated(w_cube)
     add_grid_latlon_to_cube(w_cube, grid_latlon)
@@ -131,10 +152,10 @@ if __name__ == '__main__':
 
     # convert to theta and make cube
     # this ignores things like the stash code, but is probably fine for now
-    # can also convert whole cubes, but to save time/memory only convert slices
     theta = potential_temperature(t_cube.data, p_cube.data)
     theta_cube = p_cube.copy()
     theta_cube.data = theta
+    del theta
     theta_cube.units = 'K'
     theta_cube.standard_name = 'air_potential_temperature'
 
@@ -142,8 +163,21 @@ if __name__ == '__main__':
     RH = th.q_p_to_e(q_cube.data, p_cube.data) / th.esat(t_cube.data)
     RH_cube = p_cube.copy()
     RH_cube.data = RH
+    del RH, t_cube
     RH_cube.standard_name = 'relative_humidity'
     RH_cube.units = '1'
+
+    # now add orography hybrid height factory to desired cubes
+    orog_coord = iris.coords.AuxCoord(orog_cube.data, standard_name=str(orog_cube.standard_name),
+                                      long_name='orography', var_name='orog', units=orog_cube.units)
+    for cube in [w_cube, theta_cube, RH_cube]:
+        sigma = cube.coord('sigma')
+        delta = cube.coord('level_height')
+        fac = iris.aux_factory.HybridHeightFactory(delta=delta, sigma=sigma, orography=orog_coord)
+        cube.add_aux_coord(orog_coord, (get_coord_index(cube, 'grid_latitude'),
+                                        get_coord_index(cube, 'grid_longitude')))
+        cube.add_aux_factory(fac)
+    del orog_coord
 
     # here choose cross-section details (only supports along latitude for now)
     lat = 51.9
@@ -160,5 +194,4 @@ if __name__ == '__main__':
     lon_index_east = w_cube.coord('grid_longitude').nearest_neighbour_index(model_eastbound)
 
     plot_xsect_map(w_cube)
-
     plot_xsect(w_cube, theta_cube, RH_cube)
