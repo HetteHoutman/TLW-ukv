@@ -4,7 +4,7 @@ import iris.plot as iplt
 import matplotlib.cm as mpl_cm
 import matplotlib.colors as colors
 import matplotlib.pyplot as plt
-import numpy as np
+from pyproj import Geod
 
 import thermodynamics as th
 from iris_read import *
@@ -74,7 +74,8 @@ def plot_xsect(w, theta, RH, orog_cube, max_height=5000, cmap=mpl_cm.get_cmap("b
 
 
 def plot_xsect_map(w, map_height=1000, cmap=mpl_cm.get_cmap("brewer_PuOr_11"),
-                   bottomleft=(-10.5, 50.5), topright=(-5, 56)):
+                   bottomleft=(-10.5, 50.5), topright=(-5, 56),
+                   start=(-10.35, 51.9), end=(-6, 55)):
     """
     Plots the map indicating the cross-section, in addition to the w field.
     Parameters
@@ -100,9 +101,17 @@ def plot_xsect_map(w, map_height=1000, cmap=mpl_cm.get_cmap("brewer_PuOr_11"),
     w_con = iplt.contourf(w_single_level, coords=['longitude', 'latitude'],
                           cmap=cmap, norm=centred_cnorm(w_single_level))
 
-    ax.plot(grid_latlon['true_lons'][lat_index, lon_index_west:lon_index_east + 1],
-            grid_latlon['true_lats'][lat_index, lon_index_west:lon_index_east + 1],
-            color='k', zorder=50)
+    g = Geod(ellps='WGS84')
+    great_circle = np.array(g.npts(*start, *end, 100)).T
+
+    # ax.plot(grid_latlon['true_lons'][lat_index, lon_index_west:lon_index_east + 1],
+    #         grid_latlon['true_lats'][lat_index, lon_index_west:lon_index_east + 1],
+    #         color='k', zorder=50)
+    ax.plot(great_circle[0], great_circle[1], color='k', zorder=50)
+
+    print('cool works, now figure out how to interpolate onto great circle. might just have to avoid cubes altogether'
+          ' and use scipy or something, will lose some nice iris plotting but whatever')
+
     plt.scatter(*sonde_locs['valentia'], marker='*', color='r', edgecolors='k', s=250, zorder=100)
 
     ax.gridlines(crs=crs_latlon, draw_labels=True)
