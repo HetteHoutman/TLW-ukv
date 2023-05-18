@@ -4,6 +4,7 @@ import iris.plot as iplt
 import matplotlib.cm as mpl_cm
 import matplotlib.colors as colors
 import matplotlib.pyplot as plt
+import numpy as np
 from pyproj import Geod
 
 import thermodynamics as th
@@ -186,6 +187,8 @@ if __name__ == '__main__':
         cube.add_aux_factory(fac)
     del orog_coord
 
+
+
     # here choose cross-section details (only supports along latitude for now)
     lat = 51.9
     lonbound_west = -10.5
@@ -202,3 +205,55 @@ if __name__ == '__main__':
 
     plot_xsect_map(w_cube)
     plot_xsect(w_cube, theta_cube, RH_cube, orog_cube)
+
+    w = w_cube
+
+    n = 50
+
+    g = Geod(ellps='WGS84')
+    # need to include start and end points
+    gc = np.array(g.npts(-10.35, 51.9, -8.5, 51.9, n)).T
+    import time
+    import scipy
+
+    start_time = time.clock()
+    gc_model = np.array([crs_rotated.transform_point(gc[0,i], gc[1,i], crs_latlon) for i in range(len(gc[0]))])
+    gc_model[:,0] += 360
+    print(f'{time.clock()-start_time} seconds needed to convert great circle points to model grid')
+
+    bottomleft = (-10.5, 51.5)
+    topright = (-8, 52.5)
+    bl_model = crs_rotated.transform_point(bottomleft[0], bottomleft[1], crs_latlon)
+    tr_model = crs_rotated.transform_point(topright[0], topright[1], crs_latlon)
+
+    w = w.intersection(grid_latitude=(bl_model[1], tr_model[1]),
+                                          grid_longitude=(bl_model[0], tr_model[0]))
+    max_height = 5000
+    max_height_index = w.coord('level_height').nearest_neighbour_index(max_height * 1.1)
+
+    grid = np.moveaxis(np.array(np.meshgrid(w.coord('grid_longitude').points, w.coord('grid_latitude').points)), 0, -1)
+    # grid = np.moveaxis(np.array(np.meshgrid(w.coord('level_height').points[:max_height_index],
+    #                                         w.coord('grid_longitude').points,
+    #                                         w.coord('grid_latitude').points)),
+    #                    [0,1,2,3], [-1,2,0,1])
+    #
+    points = grid.reshape(-1, grid.shape[-1])
+    #
+    # broadcast_lheights = np.broadcast_to(w.coord('level_height').points[:max_height_index], (n, max_height_index)).T
+    # broadcast_gc = np.broadcast_to(gc_model, (max_height_index, *gc_model.shape))
+    # combine
+    # model_gc_with_heights = np.concatenate((broadcast_lheights[:,:,np.newaxis], broadcast_gc), axis=-1)
+    #
+    #
+    # start_time = time.clock()
+    # print('start interpolation...')
+    # w_slice = scipy.interpolate.griddata(points, w[:max_height_index, ::-1].data.flatten(), model_gc_with_heights)
+    # print(f'{time.clock()-start_time} seconds needed to interpolate')
+    w_slice = np.empty((max_height_index + 1, n))
+    start_time = time.clock()
+    for k in range(max_height_index + 1):
+        w_slice[k] = scipy.interpolate.griddata(points, w[k].data[::-1].flatten(), gc_model)
+        if k % 5 == 0:
+            print(f'at index {k}/{max_height_index}...')
+
+    print(f'{time.clock()-start_time} seconds needed to iterate over height and fill w_slice')
