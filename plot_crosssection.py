@@ -218,7 +218,7 @@ if __name__ == '__main__':
 
     start_time = time.clock()
     gc_model = np.array([crs_rotated.transform_point(gc[0,i], gc[1,i], crs_latlon) for i in range(len(gc[0]))])
-    gc_model[:,0] += 360
+    # gc_model[:,0] += 360
     print(f'{time.clock()-start_time} seconds needed to convert great circle points to model grid')
 
     bottomleft = (-10.5, 51.5)
@@ -238,22 +238,44 @@ if __name__ == '__main__':
     #                    [0,1,2,3], [-1,2,0,1])
     #
     points = grid.reshape(-1, grid.shape[-1])
+
     #
-    # broadcast_lheights = np.broadcast_to(w.coord('level_height').points[:max_height_index], (n, max_height_index)).T
-    # broadcast_gc = np.broadcast_to(gc_model, (max_height_index, *gc_model.shape))
+    broadcast_lheights = np.broadcast_to(w.coord('level_height').points[:max_height_index], (n, max_height_index)).T
+    broadcast_gc = np.broadcast_to(gc_model, (max_height_index, *gc_model.shape))
     # combine
-    # model_gc_with_heights = np.concatenate((broadcast_lheights[:,:,np.newaxis], broadcast_gc), axis=-1)
-    #
-    #
-    # start_time = time.clock()
-    # print('start interpolation...')
-    # w_slice = scipy.interpolate.griddata(points, w[:max_height_index, ::-1].data.flatten(), model_gc_with_heights)
-    # print(f'{time.clock()-start_time} seconds needed to interpolate')
-    w_slice = np.empty((max_height_index + 1, n))
+    model_gc_with_heights = np.concatenate((broadcast_lheights[:,:,np.newaxis], broadcast_gc), axis=-1)
+
+
     start_time = time.clock()
-    for k in range(max_height_index + 1):
-        w_slice[k] = scipy.interpolate.griddata(points, w[k].data[::-1].flatten(), gc_model)
-        if k % 5 == 0:
-            print(f'at index {k}/{max_height_index}...')
+    print('start interpolation...')
+    w_slice = scipy.interpolate.griddata(points, w[:max_height_index, ::-1].data.flatten(), model_gc_with_heights)
+    print(f'{time.clock()-start_time} seconds needed to interpolate')
+    # w_slice = np.empty((max_height_index + 1, n))
+    # start_time = time.clock()
+    # for k in range(max_height_index + 1):
+    #     w_slice[k] = scipy.interpolate.griddata(points, w[k].data[::-1].flatten(), gc_model)
+    #     if k % 5 == 0:
+    #         print(f'at index {k}/{max_height_index}...')
 
     print(f'{time.clock()-start_time} seconds needed to iterate over height and fill w_slice')
+
+    print('Actually: scipy.griddata might be more useful. can just give it altitude instead of level_height'
+          'and will interpolate automatically. might be slow initially but can refine later?')
+
+    print(f'ask Sue for her oblique xsect code to compare')
+    """def plot(bl, tr):
+    ...:     new_crs = ccrs.RotatedPole(pole_latitude=bl[1], pole_longitude=bl[0])
+    ...:     rot = new_crs.transform_point(*tr, crs_latlon)[0]
+    ...:     new_crs = ccrs.RotatedPole(pole_latitude=bl[1], pole_longitude=bl[0], central_rotated_longitude=-rot)
+    ...:     iplt.contourf(w[0])
+    ...:     ax = plt.gca()
+    ...:     ax.coastlines()
+    ...:     ax.gridlines(crs=new_crs)
+    ...:     gc = np.array(g.npts(*bl, *tr, n)).T
+    ...:     plt.plot(gc[0], gc[1], transform=crs_latlon)
+    ...:     plt.show()
+    ...:     return new_crs
+    
+    so can construct a projection that has great circle as a longitude line.
+    now need to figure out how to construct grid on this projection and then regrid w onto this new grid??
+"""
