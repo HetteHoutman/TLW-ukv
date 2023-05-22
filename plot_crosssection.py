@@ -4,7 +4,6 @@ import iris.plot as iplt
 import matplotlib.cm as mpl_cm
 import matplotlib.colors as colors
 import matplotlib.pyplot as plt
-import numpy as np
 from pyproj import Geod
 
 import thermodynamics as th
@@ -74,44 +73,35 @@ def plot_xsect(w, theta, RH, orog_cube, max_height=5000, cmap=mpl_cm.get_cmap("b
     plt.show()
 
 
-def plot_xsect_map(w, map_height=1000, cmap=mpl_cm.get_cmap("brewer_PuOr_11"),
-                   bottomleft=(-10.5, 50.5), topright=(-5, 56),
-                   start=(-10.35, 51.9), end=(-6, 55)):
+def plot_xsect_map(cube_single_level, cmap=mpl_cm.get_cmap("brewer_PuOr_11"), start=(-10.35, 51.9), end=(-6, 55)):
     """
     Plots the map indicating the cross-section, in addition to the w field.
     Parameters
     ----------
-    w
-    map_height
-    cmap
-    bottomleft : tuple
-        lon/lat for the bottom left point of the map
-    topright : tuple
-        lon/lat for the top right point of the map
+    cube_single_level : Cube
+        the single level cube to be plotted
+    cmap :
+        colors
+    end : tuple
+        lon/lat of the end of the great circle cross-section line to be plotted, or None if no line is to be plotted
+    start : tuple
+        lon/lat of the start of the great circle cross-section line to be plotted, or None if no line is to be plotted
     """
+
     fig, ax = plt.subplots(1, 1, subplot_kw={'projection': crs_latlon})
     ax.coastlines()
 
-    height_index = w.coord('level_height').nearest_neighbour_index(map_height)
-
-    bl_model = crs_rotated.transform_point(bottomleft[0], bottomleft[1], crs_latlon)
-    tr_model = crs_rotated.transform_point(topright[0], topright[1], crs_latlon)
-
-    w_single_level = w[1].intersection(grid_latitude=(bl_model[1], tr_model[1]),
-                                          grid_longitude=(bl_model[0], tr_model[0]))
-    w_con = iplt.contourf(w_single_level, coords=['longitude', 'latitude'],
-                          cmap=cmap, norm=centred_cnorm(w_single_level))
-
-    g = Geod(ellps='WGS84')
-    great_circle = np.array(g.npts(*start, *end, 100)).T
-
+    w_con = iplt.contourf(cube_single_level, coords=['longitude', 'latitude'],
+                          cmap=cmap, norm=centred_cnorm(cube_single_level))
     # ax.plot(grid_latlon['true_lons'][lat_index, lon_index_west:lon_index_east + 1],
     #         grid_latlon['true_lats'][lat_index, lon_index_west:lon_index_east + 1],
     #         color='k', zorder=50)
-    ax.plot(great_circle[0], great_circle[1], color='k', zorder=50)
 
-    print('cool works, now figure out how to interpolate onto great circle. might just have to avoid cubes altogether'
-          ' and use scipy or something, will lose some nice iris plotting but whatever')
+    if (start is None) or (end is None):
+        pass
+    else:
+        great_circle = make_great_circle_points(end, start)
+        ax.plot(great_circle[0], great_circle[1], color='k', zorder=50)
 
     plt.scatter(*sonde_locs['valentia'], marker='*', color='r', edgecolors='k', s=250, zorder=100)
 
@@ -122,7 +112,7 @@ def plot_xsect_map(w, map_height=1000, cmap=mpl_cm.get_cmap("brewer_PuOr_11"),
                  location='bottom',
                  # orientation='vertical'
                  )
-    plt.title(f'UKV {w.coord("level_height").points[height_index]:.0f} '
+    plt.title(f'UKV {cube_single_level.coord("level_height").points[0]:.0f} '
               f'm {year}/{month}/{day} at {h}h ({forecast_time})')
 
     plt.tight_layout()
@@ -130,8 +120,54 @@ def plot_xsect_map(w, map_height=1000, cmap=mpl_cm.get_cmap("brewer_PuOr_11"),
     plt.show()
 
 
+def cube_at_single_level(cube, map_height, bottomleft=None, topright=None):
+    """
+    returns the cube at a selected level_height and between bottom left and top right bounds
+    Parameters
+    ----------
+    cube
+    map_height
+    bottomleft : tuple
+        lon/lat for the bottom left point of the map
+    topright : tuple
+        lon/lat for the top right point of the map
+    Returns
+    -------
+
+    """
+    bl_model = crs_rotated.transform_point(bottomleft[0], bottomleft[1], crs_latlon)
+    tr_model = crs_rotated.transform_point(topright[0], topright[1], crs_latlon)
+    # TODO change level_height to altitude
+    height_index = cube.coord('level_height').nearest_neighbour_index(map_height)
+    w_single_level = cube[height_index].intersection(grid_latitude=(bl_model[1], tr_model[1]),
+                                                     grid_longitude=(bl_model[0], tr_model[0]))
+    return w_single_level
+
+
+def make_great_circle_points(start, end):
+    """
+    returns an array of n lon/lat pairs on great circle between (lon, lat) of start and end points
+    Parameters
+    ----------
+    start : tuple
+        (lon, lat) of start point
+    end : tuple
+        (lon, lat) of end point
+
+    Returns
+    -------
+    ndarray
+        lon/lat pairs of points on great circle
+    """
+    # TODO include start and end points
+    g = Geod(ellps='WGS84')
+    great_circle = np.array(g.npts(*start, *end, 100)).T
+    return great_circle
+
+
 if __name__ == '__main__':
     # read file
+    # TODO use os.sep to make system transferable?
     indir = '/home/users/sw825517/Documents/ukv_data/'
     filename = indir + 'prodm_op_ukv_20150414_09_004.pp'
 
@@ -203,7 +239,11 @@ if __name__ == '__main__':
     lon_index_west = w_cube.coord('grid_longitude').nearest_neighbour_index(model_westbound)
     lon_index_east = w_cube.coord('grid_longitude').nearest_neighbour_index(model_eastbound)
 
-    plot_xsect_map(w_cube)
+    map_height = 750
+    bottomleft = (-10.5, 51.5)
+    topright = (-8, 52.5)
+    w_single_level = cube_at_single_level(w_cube, map_height, bottomleft=bottomleft, topright=topright)
+    plot_xsect_map(w_single_level)
     plot_xsect(w_cube, theta_cube, RH_cube, orog_cube)
 
     w = w_cube
@@ -211,7 +251,7 @@ if __name__ == '__main__':
     n = 50
 
     g = Geod(ellps='WGS84')
-    # need to include start and end points
+    # TODO need to include start and end points
     gc = np.array(g.npts(-10.35, 51.9, -8.5, 51.9, n)).T
     import time
     import scipy
@@ -221,8 +261,6 @@ if __name__ == '__main__':
     # gc_model[:,0] += 360
     print(f'{time.clock()-start_time} seconds needed to convert great circle points to model grid')
 
-    bottomleft = (-10.5, 51.5)
-    topright = (-8, 52.5)
     bl_model = crs_rotated.transform_point(bottomleft[0], bottomleft[1], crs_latlon)
     tr_model = crs_rotated.transform_point(topright[0], topright[1], crs_latlon)
 
@@ -231,11 +269,11 @@ if __name__ == '__main__':
     max_height = 5000
     max_height_index = w.coord('level_height').nearest_neighbour_index(max_height * 1.1)
 
-    grid = np.moveaxis(np.array(np.meshgrid(w.coord('grid_longitude').points, w.coord('grid_latitude').points)), 0, -1)
-    # grid = np.moveaxis(np.array(np.meshgrid(w.coord('level_height').points[:max_height_index],
-    #                                         w.coord('grid_longitude').points,
-    #                                         w.coord('grid_latitude').points)),
-    #                    [0,1,2,3], [-1,2,0,1])
+    # grid = np.moveaxis(np.array(np.meshgrid(w.coord('grid_longitude').points, w.coord('grid_latitude').points)), 0, -1)
+    grid = np.moveaxis(np.array(np.meshgrid(w.coord('level_height').points[:max_height_index],
+                                            w.coord('grid_longitude').points,
+                                            w.coord('grid_latitude').points)),
+                       [0,1,2,3], [-1,2,0,1])
     #
     points = grid.reshape(-1, grid.shape[-1])
 
@@ -245,7 +283,7 @@ if __name__ == '__main__':
     # combine
     model_gc_with_heights = np.concatenate((broadcast_lheights[:,:,np.newaxis], broadcast_gc), axis=-1)
 
-
+    plonk
     start_time = time.clock()
     print('start interpolation...')
     w_slice = scipy.interpolate.griddata(points, w[:max_height_index, ::-1].data.flatten(), model_gc_with_heights)
