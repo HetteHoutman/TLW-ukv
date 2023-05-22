@@ -165,16 +165,33 @@ def make_great_circle_points(start, end):
     return great_circle
 
 
+def data_from_pp_filename(filename):
+    """
+    # TODO look up proper name of forecast time
+    Returns the year, month, dat and "forecast time" of a pp file
+    Parameters
+    ----------
+    filename
+
+    Returns
+    -------
+
+    """
+    year = filename[-18:-14]
+    month = filename[-14:-12]
+    day = filename[-12:-10]
+    forecast_time = filename[-9:-7]
+
+    return year, month, day, forecast_time
+
+
 if __name__ == '__main__':
     # read file
     # TODO use os.sep to make system transferable?
     indir = '/home/users/sw825517/Documents/ukv_data/'
     filename = indir + 'prodm_op_ukv_20150414_09_004.pp'
 
-    year = filename[-18:-14]
-    month = filename[-14:-12]
-    day = filename[-12:-10]
-    forecast_time = filename[-9:-7]
+    year, month, day, forecast_time = data_from_pp_filename(filename)
     h = 12
 
     w_cube = read_variable(filename, 150, h)
@@ -185,7 +202,7 @@ if __name__ == '__main__':
     q_cube = check_level_heights(q_cube, t_cube)
 
     orog_file = indir + 'prods_op_ukv_20150414_09_000.pp'
-    # NB might be easier not to use read_variable but just iris.load
+    # TODO might be easier not to use read_variable but just iris.load
     orog_cube = read_variable(orog_file, 33, 9)
 
     # add true lat lon
@@ -242,12 +259,13 @@ if __name__ == '__main__':
     map_height = 750
     bottomleft = (-10.5, 51.5)
     topright = (-8, 52.5)
+
     w_single_level = cube_at_single_level(w_cube, map_height, bottomleft=bottomleft, topright=topright)
+
     plot_xsect_map(w_single_level)
     plot_xsect(w_cube, theta_cube, RH_cube, orog_cube)
 
     w = w_cube
-
     n = 50
 
     g = Geod(ellps='WGS84')
