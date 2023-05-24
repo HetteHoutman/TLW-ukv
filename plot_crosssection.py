@@ -14,9 +14,9 @@ from sonde_locs import sonde_locs
 from thermodynamics import potential_temperature
 
 
-def centred_cnorm(cube):
-    w_min = cube.data.min()
-    w_max = cube.data.max()
+def centred_cnorm(data):
+    w_min = data.min()
+    w_max = data.max()
     range_max = max(abs(w_max), abs(w_min))
     return colors.Normalize(vmin=-range_max, vmax=range_max)
 
@@ -51,7 +51,7 @@ def plot_xsect(w, theta, RH, orog_cube, max_height=5000, cmap=mpl_cm.get_cmap("b
     orog_section = orog_cube[lat_index, lon_index_west:lon_index_east + 1]
 
     w_con = iplt.contourf(w_section, coords=coords,
-                          cmap=cmap, norm=centred_cnorm(w_section))
+                          cmap=cmap, norm=centred_cnorm(w_section.data))
     theta_con = iplt.contour(theta_section, coords=coords,
                              colors='k', linestyles='--')
     RH_con = iplt.contour(RH_section, levels=[0.75], coords=coords,
@@ -92,7 +92,7 @@ def plot_xsect_map(cube_single_level, cmap=mpl_cm.get_cmap("brewer_PuOr_11"), st
     ax.coastlines()
 
     w_con = iplt.contourf(cube_single_level, coords=['longitude', 'latitude'],
-                          cmap=cmap, norm=centred_cnorm(cube_single_level))
+                          cmap=cmap, norm=centred_cnorm(cube_single_level.data))
     # ax.plot(grid_latlon['true_lons'][lat_index, lon_index_west:lon_index_east + 1],
     #         grid_latlon['true_lats'][lat_index, lon_index_west:lon_index_east + 1],
     #         color='k', zorder=50)
@@ -244,8 +244,8 @@ if __name__ == '__main__':
 
     # here choose cross-section details (only supports along latitude for now)
     lat = 51.9
-    lonbound_west = -10.5
-    lonbound_east = -8.5
+    lonbound_west = -10.4
+    lonbound_east = -9.4
 
     crs_latlon = ccrs.PlateCarree()
     crs_rotated = w_cube.coord('grid_latitude').coord_system.as_cartopy_crs()
@@ -257,54 +257,58 @@ if __name__ == '__main__':
     lon_index_east = w_cube.coord('grid_longitude').nearest_neighbour_index(model_eastbound)
 
     map_height = 750
-    bottomleft = (-10.5, 51.5)
-    topright = (-8, 52.5)
+    bottomleft = (-10.5, 51.6)
+    topright = (-9.25, 52.1)
+
+    gc_start = (-10.4, 51.9)
+    gc_end = (-9.4, 51.9)
 
     w_single_level = cube_at_single_level(w_cube, map_height, bottomleft=bottomleft, topright=topright)
 
-    plot_xsect_map(w_single_level)
+    plot_xsect_map(w_single_level, start=gc_start, end=gc_end)
     plot_xsect(w_cube, theta_cube, RH_cube, orog_cube)
+
+
+    # ---------------- new -------------------
 
     w = w_cube
     n = 50
 
     g = Geod(ellps='WGS84')
     # TODO need to include start and end points
-    gc = np.array(g.npts(-10.35, 51.9, -8.5, 51.9, n)).T
+    gc = np.array(g.npts(*gc_start, *gc_end, n)).T
     import time
     import scipy
 
     start_time = time.clock()
     gc_model = np.array([crs_rotated.transform_point(gc[0,i], gc[1,i], crs_latlon) for i in range(len(gc[0]))])
     # gc_model[:,0] += 360
-    print(f'{time.clock()-start_time} seconds needed to convert great circle points to model grid')
 
     bl_model = crs_rotated.transform_point(bottomleft[0], bottomleft[1], crs_latlon)
     tr_model = crs_rotated.transform_point(topright[0], topright[1], crs_latlon)
 
-    w = w.intersection(grid_latitude=(bl_model[1], tr_model[1]),
-                                          grid_longitude=(bl_model[0], tr_model[0]))
     max_height = 5000
     max_height_index = w.coord('level_height').nearest_neighbour_index(max_height * 1.1)
+
+    w = w[:max_height_index].intersection(grid_latitude=(bl_model[1], tr_model[1]),
+                                          grid_longitude=(bl_model[0], tr_model[0]))
 
     # grid = np.moveaxis(np.array(np.meshgrid(w.coord('grid_longitude').points, w.coord('grid_latitude').points)), 0, -1)
     grid = np.moveaxis(np.array(np.meshgrid(w.coord('level_height').points[:max_height_index],
                                             w.coord('grid_longitude').points,
                                             w.coord('grid_latitude').points)),
                        [0,1,2,3], [-1,2,0,1])
-    #
+
     points = grid.reshape(-1, grid.shape[-1])
 
-    #
     broadcast_lheights = np.broadcast_to(w.coord('level_height').points[:max_height_index], (n, max_height_index)).T
     broadcast_gc = np.broadcast_to(gc_model, (max_height_index, *gc_model.shape))
     # combine
     model_gc_with_heights = np.concatenate((broadcast_lheights[:,:,np.newaxis], broadcast_gc), axis=-1)
 
-    plonk
     start_time = time.clock()
     print('start interpolation...')
-    w_slice = scipy.interpolate.griddata(points, w[:max_height_index, ::-1].data.flatten(), model_gc_with_heights)
+    w_slice = scipy.interpolate.griddata(points, w[:, ::-1].data.flatten(), model_gc_with_heights)
     print(f'{time.clock()-start_time} seconds needed to interpolate')
     # w_slice = np.empty((max_height_index + 1, n))
     # start_time = time.clock()
@@ -313,7 +317,9 @@ if __name__ == '__main__':
     #     if k % 5 == 0:
     #         print(f'at index {k}/{max_height_index}...')
 
-    print(f'{time.clock()-start_time} seconds needed to iterate over height and fill w_slice')
+    # print(f'{time.clock()-start_time} seconds needed to iterate over height and fill w_slice')
+    print('OKAY SO SOMETHING is up with how w cube is flattened wrt to points and model_gc_with_heights'
+          'need to figure out how to flatten w cube properly.')
 
     print('Actually: scipy.griddata might be more useful. can just give it altitude instead of level_height'
           'and will interpolate automatically. might be slow initially but can refine later?')
