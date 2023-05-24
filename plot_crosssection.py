@@ -187,7 +187,7 @@ if __name__ == '__main__':
 
     # TODO get xsect to work for orography cube
     # TODO plot height (then altitude if possible) on y axis of plot s.t. w and theta are plotted correctly
-    # figure out some way of plotting a representative x axis
+    # TODO figure out some way of plotting a representative x axis
 
 
 
