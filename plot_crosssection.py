@@ -1,16 +1,16 @@
+import time
 import cartopy.crs as ccrs
 import iris.coords
 import iris.plot as iplt
 import matplotlib.cm as mpl_cm
 import matplotlib.pyplot as plt
-from pyproj import Geod
+from scipy.interpolate import griddata
 
 import thermodynamics as th
 from cube_processing import cube_at_single_level, check_level_heights, cube_slice, new_cube_from_array_and_cube
 from general_plotting_fns import centred_cnorm
 from iris_read import *
 from miscellaneous import make_great_circle_points
-from plot_profile_from_UKV import convert_to_ukv_coords
 from plot_xsect import get_grid_latlon_from_rotated, add_grid_latlon_to_cube, get_coord_index
 from pp_processing import data_from_pp_filename
 from sonde_locs import sonde_locs
@@ -178,13 +178,6 @@ if __name__ == '__main__':
     crs_rotated = w_cube.coord('grid_latitude').coord_system.as_cartopy_crs()
 
     gc = make_great_circle_points(gc_start, gc_end, n)
-
-    # g = Geod(ellps='WGS84')
-    # TODO need to include start and end points
-    # gc = np.array(g.npts(*gc_start, *gc_end, n)).T
-    import time
-    import scipy
-
     start_time = time.clock()
     gc_model = np.array([crs_rotated.transform_point(gc[0,i], gc[1,i], crs_latlon) for i in range(len(gc[0]))])
     # gc_model[:,0] += 360
@@ -213,7 +206,7 @@ if __name__ == '__main__':
 
     start_time = time.clock()
     print('start interpolation...')
-    w_slice = scipy.interpolate.griddata(points, w[:, ::-1].data.flatten(), model_gc_with_heights)
+    w_slice = griddata(points, w[:, ::-1].data.flatten(), model_gc_with_heights)
     print(f'{time.clock()-start_time} seconds needed to interpolate')
 
     # w_slice = np.empty((max_height_index + 1, n))
@@ -223,11 +216,6 @@ if __name__ == '__main__':
     #     if k % 5 == 0:
     #         print(f'at index {k}/{max_height_index}...')
     # print(f'{time.clock()-start_time} seconds needed to iterate over height and fill w_slice')
-    print('OKAY SO SOMETHING is up with how w cube is flattened wrt to points and model_gc_with_heights'
-          'need to figure out how to flatten w cube properly.')
-
-    print('Actually: scipy.griddata might be more useful. can just give it altitude instead of level_height'
-          'and will interpolate automatically. might be slow initially but can refine later?')
 
     print(f'ask Sue for her oblique xsect code to compare')
     """def plot(bl, tr):
