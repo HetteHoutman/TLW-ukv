@@ -1,19 +1,15 @@
-import time
-
 import cartopy.crs as ccrs
-import iris.coords
 import iris.plot as iplt
 import matplotlib.cm as mpl_cm
 import matplotlib.pyplot as plt
-from scipy.interpolate import griddata
 
 import thermodynamics as th
-from cube_processing import cube_at_single_level, check_level_heights, cube_slice, new_cube_from_array_and_cube
+from cube_processing import cube_at_single_level, check_level_heights, cube_slice, cube_from_array_and_cube, \
+    great_circle_xsect, add_orography
 from general_plotting_fns import centred_cnorm
 from iris_read import *
 from miscellaneous import make_great_circle_points
-from plot_profile_from_UKV import convert_to_ukv_coords
-from plot_xsect import get_grid_latlon_from_rotated, add_grid_latlon_to_cube, get_coord_index
+from plot_xsect import get_grid_latlon_from_rotated, add_grid_latlon_to_cube
 from pp_processing import data_from_pp_filename
 from sonde_locs import sonde_locs
 from thermodynamics import potential_temperature
@@ -21,8 +17,7 @@ from thermodynamics import potential_temperature
 
 def plot_xsect_latitude(w_section, theta_section, RH_section, orog_section, max_height=5000, cmap=mpl_cm.get_cmap("brewer_PuOr_11"),
                coords=None):
-    """plots the cross-section with filled contours of w and normal contours of theta and RH"""
-    # TODO mention that this function is just plots along a latitude as a sanity check for the interpolation
+    """plots the latitudinal cross-section with filled contours of w and normal contours of theta and RH"""
     if coords is None:
         coords = ['longitude', 'altitude']
 
@@ -92,27 +87,12 @@ def plot_xsect_map(cube_single_level, cmap=mpl_cm.get_cmap("brewer_PuOr_11"), st
                  location='bottom',
                  # orientation='vertical'
                  )
-    # TODO year month day etc are global variables still
     plt.title(f'UKV {cube_single_level.coord("level_height").points[0]:.0f} '
               f'm {year}/{month}/{day} at {h}h ({forecast_time})')
 
     plt.tight_layout()
     plt.savefig(f'plots/xsect_map{custom_save}_{year}{month}{day}_{h}.png', dpi=300)
     plt.show()
-
-
-def add_orography(orography_cube, *cubes):
-    orog_coord = iris.coords.AuxCoord(orography_cube.data, standard_name=str(orography_cube.standard_name),
-                                      long_name='orography', var_name='orog', units=orography_cube.units)
-    for cube in cubes:
-        sigma = cube.coord('sigma')
-        delta = cube.coord('level_height')
-        fac = iris.aux_factory.HybridHeightFactory(delta=delta, sigma=sigma, orography=orog_coord)
-        cube.add_aux_coord(orog_coord, (get_coord_index(cube, 'grid_latitude'),get_coord_index(cube, 'grid_longitude')))
-        cube.add_aux_factory(fac)
-    del orog_coord
-
-    return cubes
 
 
 def plot_interpolated_xsect(xsect, cmap=mpl_cm.get_cmap("brewer_PuOr_11")):
@@ -132,43 +112,6 @@ def plot_interpolated_xsect(xsect, cmap=mpl_cm.get_cmap("brewer_PuOr_11")):
     plt.show()
 
 
-def produce_xsect(cube, n=50, gc_start=None, gc_end=None):
-    """
-
-    Parameters
-    ----------
-    cube
-    n
-
-    Returns
-    -------
-
-    """
-
-    crs_latlon = ccrs.PlateCarree()
-    crs_rotated = cube.coord('grid_latitude').coord_system.as_cartopy_crs()
-
-    gc = make_great_circle_points(gc_start, gc_end, n)
-    gc_model = np.array([convert_to_ukv_coords(gc[0, i], gc[1, i], crs_latlon, crs_rotated) for i in range(len(gc[0]))])
-    grid = np.moveaxis(np.array(np.meshgrid(cube.coord('level_height').points,
-                                            cube.coord('grid_longitude').points,
-                                            cube.coord('grid_latitude').points)),
-                       [0, 1, 2, 3], [-1, 2, 0, 1])
-    points = grid.reshape(-1, grid.shape[-1])
-
-    broadcast_lheights = np.broadcast_to(cube.coord('level_height').points, (n, cube.coord('level_height').points.shape[0])).T
-    broadcast_gc = np.broadcast_to(gc_model, (cube.coord('level_height').points.shape[0], *gc_model.shape))
-
-    # combine
-    model_gc_with_heights = np.concatenate((broadcast_lheights[:, :, np.newaxis], broadcast_gc), axis=-1)
-
-    start_time = time.clock()
-    print('start interpolation...')
-    xsect = griddata(points, cube[:, ::-1].data.flatten(), model_gc_with_heights)
-    print(f'{time.clock() - start_time} seconds needed to interpolate')
-
-    return xsect
-
 def load_and_process(reg_filename, orog_filename):
     w_cube = read_variable(reg_filename, 150, h)
     t_cube = read_variable(reg_filename, 16004, h)
@@ -186,10 +129,10 @@ def load_and_process(reg_filename, orog_filename):
     add_grid_latlon_to_cube(orog_cube, grid_latlon)
 
     # create theta and RH cubes
-    theta_cube = new_cube_from_array_and_cube(potential_temperature(t_cube.data, p_cube.data), p_cube,
-                                              unit='K', std_name='air_potential_temperature')
-    RH_cube = new_cube_from_array_and_cube(th.q_p_to_e(q_cube.data, p_cube.data) / th.esat(t_cube.data), p_cube,
-                                           unit='1', std_name='relative_humidity')
+    theta_cube = cube_from_array_and_cube(potential_temperature(t_cube.data, p_cube.data), p_cube, unit='K',
+                                          std_name='air_potential_temperature')
+    RH_cube = cube_from_array_and_cube(th.q_p_to_e(q_cube.data, p_cube.data) / th.esat(t_cube.data), p_cube, unit='1',
+                                       std_name='relative_humidity')
 
     # now add orography hybrid height factory to desired cubes
     w_cube, theta_cube, RH_cube = add_orography(orog_cube, w_cube, theta_cube, RH_cube)
@@ -230,7 +173,7 @@ if __name__ == '__main__':
     plot_xsect_latitude(w_section, theta_section, RH_section, orog_section)
 
     w_sliced = cube_slice(w_cube, map_bottomleft, map_topright, height=(0, max_height))
-    w_xsect = produce_xsect(w_sliced, gc_start=gc_start, gc_end=gc_end)
+    w_xsect = great_circle_xsect(w_sliced, gc_start=gc_start, gc_end=gc_end)
     plot_interpolated_xsect(w_xsect)
 
 

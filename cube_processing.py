@@ -1,5 +1,14 @@
+import time
+
 import cartopy.crs as ccrs
+import iris
+import numpy as np
+from scipy.interpolate import griddata
+
+from miscellaneous import make_great_circle_points
 from plot_profile_from_UKV import convert_to_ukv_coords
+from plot_xsect import get_coord_index
+
 
 def cube_at_single_level(cube, map_height, bottomleft=None, topright=None):
     """
@@ -87,7 +96,7 @@ def check_level_heights(q, t):
         raise ValueError('Double check the T and q level_heights - they do not match')
     return q
 
-def new_cube_from_array_and_cube(array, copy_cube, unit=None, std_name=None):
+def cube_from_array_and_cube(array, copy_cube, unit=None, std_name=None):
     """
     Creates a new Cube by coping copy_cube and sticking in array as cube.data
     Parameters
@@ -116,3 +125,62 @@ def new_cube_from_array_and_cube(array, copy_cube, unit=None, std_name=None):
         new_cube.standard_name = std_name
 
     return new_cube
+
+
+def great_circle_xsect(cube, n=50, gc_start=None, gc_end=None):
+    """
+    Produces an interpolated cross-section of cube along a great circle between gc_start and gc_end (uses the level_height of the cube)
+    Parameters
+    ----------
+    cube : Cube
+        the cube to be interpolated
+    n : int
+        the number of points along the great circle at which is interpolated
+    gc_start : tuple
+        lon/lat of the start of the great circle
+    gc_end : tuple
+        lon/lat of the end of the great circle
+
+    Returns
+    -------
+    ndarray
+        the interpolated cross-section
+
+    """
+
+    crs_latlon = ccrs.PlateCarree()
+    crs_rotated = cube.coord('grid_latitude').coord_system.as_cartopy_crs()
+
+    gc = make_great_circle_points(gc_start, gc_end, n)
+    gc_model = np.array([convert_to_ukv_coords(gc[0, i], gc[1, i], crs_latlon, crs_rotated) for i in range(len(gc[0]))])
+    grid = np.moveaxis(np.array(np.meshgrid(cube.coord('level_height').points,
+                                            cube.coord('grid_longitude').points,
+                                            cube.coord('grid_latitude').points)),
+                       [0, 1, 2, 3], [-1, 2, 0, 1])
+    points = grid.reshape(-1, grid.shape[-1])
+
+    broadcast_lheights = np.broadcast_to(cube.coord('level_height').points, (n, cube.coord('level_height').points.shape[0])).T
+    broadcast_gc = np.broadcast_to(gc_model, (cube.coord('level_height').points.shape[0], *gc_model.shape))
+
+    # combine
+    model_gc_with_heights = np.concatenate((broadcast_lheights[:, :, np.newaxis], broadcast_gc), axis=-1)
+
+    start_time = time.clock()
+    print('start interpolation...')
+    xsect = griddata(points, cube[:, ::-1].data.flatten(), model_gc_with_heights)
+    print(f'{time.clock() - start_time} seconds needed to interpolate')
+
+    return xsect
+
+def add_orography(orography_cube, *cubes):
+    orog_coord = iris.coords.AuxCoord(orography_cube.data, standard_name=str(orography_cube.standard_name),
+                                      long_name='orography', var_name='orog', units=orography_cube.units)
+    for cube in cubes:
+        sigma = cube.coord('sigma')
+        delta = cube.coord('level_height')
+        fac = iris.aux_factory.HybridHeightFactory(delta=delta, sigma=sigma, orography=orog_coord)
+        cube.add_aux_coord(orog_coord, (get_coord_index(cube, 'grid_latitude'),get_coord_index(cube, 'grid_longitude')))
+        cube.add_aux_factory(fac)
+    del orog_coord
+
+    return cubes
