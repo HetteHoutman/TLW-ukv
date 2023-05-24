@@ -78,7 +78,7 @@ def plot_xsect_map(cube_single_level, cmap=mpl_cm.get_cmap("brewer_PuOr_11"), st
     if (start is None) or (end is None):
         pass
     else:
-        great_circle = make_great_circle_points(start, end)
+        great_circle = make_great_circle_points(start, end, 50)
         ax.plot(great_circle[0], great_circle[1], color='k', zorder=50)
 
     plt.scatter(*sonde_locs['valentia'], marker='*', color='r', edgecolors='k', s=250, zorder=100)
@@ -177,7 +177,7 @@ if __name__ == '__main__':
     crs_latlon = ccrs.PlateCarree()
     crs_rotated = w_cube.coord('grid_latitude').coord_system.as_cartopy_crs()
 
-    gc = make_great_circle_points(gc_start, gc_end)
+    gc = make_great_circle_points(gc_start, gc_end, n)
 
     # g = Geod(ellps='WGS84')
     # TODO need to include start and end points
