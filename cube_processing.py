@@ -77,8 +77,6 @@ def cube_slice(cube, bottom_left, top_right, height=None, force_latitude=False):
 
 
 
-
-
 def check_level_heights(q, t):
     """check whether q and Temperature cubes have same level heights and adjust if necessary."""
     if q.coord('level_height').points[0] == t.coord('level_height').points[0]:
@@ -89,3 +87,32 @@ def check_level_heights(q, t):
         raise ValueError('Double check the T and q level_heights - they do not match')
     return q
 
+def new_cube_from_array_and_cube(array, copy_cube, unit=None, std_name=None):
+    """
+    Creates a new Cube by coping copy_cube and sticking in array as cube.data
+    Parameters
+    ----------
+    a : ndarray
+        data for new array
+    copy_cube : Cube
+        cube to be copied
+    unit : str
+        optional. units for new cube. if None will use copy_cube's units
+    std_name : str
+        optional. standard name for new cube. if None will use copy_cube's standard name
+
+    Returns
+    -------
+    Cube
+
+    """
+    new_cube = copy_cube.copy()
+    new_cube.data = array
+    # is deleting useful in any way?
+    del array
+    if unit is not None:
+        new_cube.units = unit
+    if std_name is not None:
+        new_cube.standard_name = std_name
+
+    return new_cube

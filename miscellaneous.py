@@ -19,5 +19,5 @@ def make_great_circle_points(start, end):
     """
     # TODO include start and end points
     g = Geod(ellps='WGS84')
-    great_circle = np.array(g.npts(*start, *end, 100)).T
+    great_circle = np.array(g.npts(*start, *end, 100, initial_idx=0, terminus_idx=0)).T
     return great_circle

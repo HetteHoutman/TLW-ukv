@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 from pyproj import Geod
 
 import thermodynamics as th
-from cube_processing import cube_at_single_level, check_level_heights, cube_slice
+from cube_processing import cube_at_single_level, check_level_heights, cube_slice, new_cube_from_array_and_cube
 from general_plotting_fns import centred_cnorm
 from iris_read import *
 from miscellaneous import make_great_circle_points
@@ -17,7 +17,7 @@ from sonde_locs import sonde_locs
 from thermodynamics import potential_temperature
 
 
-def plot_xsect(w_section, theta_section, RH_section, orog_section, max_height=5000, cmap=mpl_cm.get_cmap("brewer_PuOr_11"),
+def plot_xsect_latitude(w_section, theta_section, RH_section, orog_section, max_height=5000, cmap=mpl_cm.get_cmap("brewer_PuOr_11"),
                coords=None):
     """plots the cross-section with filled contours of w and normal contours of theta and RH"""
     # TODO mention that this function is just plots along a latitude as a sanity check for the interpolation
@@ -37,6 +37,7 @@ def plot_xsect(w_section, theta_section, RH_section, orog_section, max_height=50
     plt.fill_between(orog_section.coord('longitude').points, orog_section.data, where=orog_section.data>0, color='k',
                      interpolate=True)
 
+    lat = w_section.coord('latitude').points[0]
     plt.ylim((0,max_height))
     plt.clabel(theta_con)
     plt.xlabel(f'{w_section.coord(coords[0]).name().capitalize()} / deg')
@@ -45,38 +46,39 @@ def plot_xsect(w_section, theta_section, RH_section, orog_section, max_height=50
     plt.colorbar(w_con, label='Upward air velocity / m/s')
 
     plt.tight_layout()
-    plt.savefig(f'plots/xsect_lat{lat}_{year}{month}{day}_{h}.png', dpi=300)
+    plt.savefig(f'plots/xsect_lat{lat:.3f}_{year}{month}{day}_{h}.png', dpi=300)
     plt.show()
 
 
-def plot_xsect_map(cube_single_level, cmap=mpl_cm.get_cmap("brewer_PuOr_11"), start=(-10.35, 51.9), end=(-6, 55)):
+def plot_xsect_map(cube_single_level, cmap=mpl_cm.get_cmap("brewer_PuOr_11"), start=(-10.35, 51.9), end=(-6, 55),
+                   custom_save=''):
     """
     Plots the map indicating the cross-section, in addition to the w field.
     Parameters
     ----------
     cube_single_level : Cube
-        the single level cube to be plotted
+        the single level cube to be plotted (can only have height coordinate as aux coord)
     cmap :
         colors
     end : tuple
         lon/lat of the end of the great circle cross-section line to be plotted, or None if no line is to be plotted
     start : tuple
         lon/lat of the start of the great circle cross-section line to be plotted, or None if no line is to be plotted
+    custom_save : str
+        optional addition to the save file name to distinguish it from others
     """
 
+    crs_latlon = ccrs.PlateCarree()
     fig, ax = plt.subplots(1, 1, subplot_kw={'projection': crs_latlon})
     ax.coastlines()
 
     w_con = iplt.contourf(cube_single_level, coords=['longitude', 'latitude'],
                           cmap=cmap, norm=centred_cnorm(cube_single_level.data))
-    # ax.plot(grid_latlon['true_lons'][lat_index, lon_index_west:lon_index_east + 1],
-    #         grid_latlon['true_lats'][lat_index, lon_index_west:lon_index_east + 1],
-    #         color='k', zorder=50)
 
     if (start is None) or (end is None):
         pass
     else:
-        great_circle = make_great_circle_points(end, start)
+        great_circle = make_great_circle_points(start, end)
         ax.plot(great_circle[0], great_circle[1], color='k', zorder=50)
 
     plt.scatter(*sonde_locs['valentia'], marker='*', color='r', edgecolors='k', s=250, zorder=100)
@@ -92,8 +94,22 @@ def plot_xsect_map(cube_single_level, cmap=mpl_cm.get_cmap("brewer_PuOr_11"), st
               f'm {year}/{month}/{day} at {h}h ({forecast_time})')
 
     plt.tight_layout()
-    plt.savefig(f'plots/xsect_map_lat{lat}_{year}{month}{day}_{h}.png', dpi=300)
+    plt.savefig(f'plots/xsect_map{custom_save}_{year}{month}{day}_{h}.png', dpi=300)
     plt.show()
+
+
+def add_orography(orography_cube, *cubes):
+    orog_coord = iris.coords.AuxCoord(orography_cube.data, standard_name=str(orography_cube.standard_name),
+                                      long_name='orography', var_name='orog', units=orography_cube.units)
+    for cube in cubes:
+        sigma = cube.coord('sigma')
+        delta = cube.coord('level_height')
+        fac = iris.aux_factory.HybridHeightFactory(delta=delta, sigma=sigma, orography=orog_coord)
+        cube.add_aux_coord(orog_coord, (get_coord_index(cube, 'grid_latitude'),get_coord_index(cube, 'grid_longitude')))
+        cube.add_aux_factory(fac)
+    del orog_coord
+
+    return cubes
 
 
 if __name__ == '__main__':
@@ -122,50 +138,14 @@ if __name__ == '__main__':
     add_grid_latlon_to_cube(p_cube, grid_latlon)
     add_grid_latlon_to_cube(orog_cube, grid_latlon)
 
-    # convert to theta and make cube
-    # this ignores things like the stash code, but is probably fine for now
-    theta = potential_temperature(t_cube.data, p_cube.data)
-    theta_cube = p_cube.copy()
-    theta_cube.data = theta
-    del theta
-    theta_cube.units = 'K'
-    theta_cube.standard_name = 'air_potential_temperature'
-
-    # calculate RH
-    RH = th.q_p_to_e(q_cube.data, p_cube.data) / th.esat(t_cube.data)
-    RH_cube = p_cube.copy()
-    RH_cube.data = RH
-    del RH, t_cube
-    RH_cube.standard_name = 'relative_humidity'
-    RH_cube.units = '1'
+    # create theta and RH cubes
+    theta_cube = new_cube_from_array_and_cube(potential_temperature(t_cube.data, p_cube.data), p_cube,
+                                              unit='K', std_name='air_potential_temperature')
+    RH_cube = new_cube_from_array_and_cube(th.q_p_to_e(q_cube.data, p_cube.data) / th.esat(t_cube.data), p_cube,
+                                           unit='1', std_name='relative_humidity')
 
     # now add orography hybrid height factory to desired cubes
-    orog_coord = iris.coords.AuxCoord(orog_cube.data, standard_name=str(orog_cube.standard_name),
-                                      long_name='orography', var_name='orog', units=orog_cube.units)
-    for cube in [w_cube, theta_cube, RH_cube]:
-        sigma = cube.coord('sigma')
-        delta = cube.coord('level_height')
-        fac = iris.aux_factory.HybridHeightFactory(delta=delta, sigma=sigma, orography=orog_coord)
-        cube.add_aux_coord(orog_coord, (get_coord_index(cube, 'grid_latitude'),
-                                        get_coord_index(cube, 'grid_longitude')))
-        cube.add_aux_factory(fac)
-    del orog_coord
-
-
-
-    # here choose cross-section details (only supports along latitude for now)
-    lat = 51.9
-    lonbound_west = -10.4
-    lonbound_east = -9.4
-
-    crs_latlon = ccrs.PlateCarree()
-    crs_rotated = w_cube.coord('grid_latitude').coord_system.as_cartopy_crs()
-
-    model_westbound, model_lat = convert_to_ukv_coords(lonbound_west, lat, crs_latlon, crs_rotated)
-    model_eastbound, temp = convert_to_ukv_coords(lonbound_east, lat, crs_latlon, crs_rotated)
-    lat_index = w_cube.coord('grid_latitude').nearest_neighbour_index(model_lat)
-    lon_index_west = w_cube.coord('grid_longitude').nearest_neighbour_index(model_westbound)
-    lon_index_east = w_cube.coord('grid_longitude').nearest_neighbour_index(model_eastbound)
+    w_cube, theta_cube, RH_cube = add_orography(orog_cube, w_cube, theta_cube, RH_cube)
 
     map_height = 750
     map_bottomleft = (-10.5, 51.6)
@@ -185,9 +165,8 @@ if __name__ == '__main__':
     RH_section = cube_slice(RH_cube, xs_bottomleft, xs_topright, height=(0, max_height), force_latitude=True)
     orog_section = cube_slice(orog_cube, xs_bottomleft, xs_topright, force_latitude=True)
 
-
     plot_xsect_map(w_single_level, start=gc_start, end=gc_end)
-    plot_xsect(w_section, theta_section, RH_section, orog_section)
+    plot_xsect_latitude(w_section, theta_section, RH_section, orog_section)
 
 
     # ---------------- new -------------------
@@ -195,9 +174,14 @@ if __name__ == '__main__':
     w = w_cube
     n = 50
 
-    g = Geod(ellps='WGS84')
+    crs_latlon = ccrs.PlateCarree()
+    crs_rotated = w_cube.coord('grid_latitude').coord_system.as_cartopy_crs()
+
+    gc = make_great_circle_points(gc_start, gc_end)
+
+    # g = Geod(ellps='WGS84')
     # TODO need to include start and end points
-    gc = np.array(g.npts(*gc_start, *gc_end, n)).T
+    # gc = np.array(g.npts(*gc_start, *gc_end, n)).T
     import time
     import scipy
 
@@ -231,13 +215,13 @@ if __name__ == '__main__':
     print('start interpolation...')
     w_slice = scipy.interpolate.griddata(points, w[:, ::-1].data.flatten(), model_gc_with_heights)
     print(f'{time.clock()-start_time} seconds needed to interpolate')
+
     # w_slice = np.empty((max_height_index + 1, n))
     # start_time = time.clock()
     # for k in range(max_height_index + 1):
     #     w_slice[k] = scipy.interpolate.griddata(points, w[k].data[::-1].flatten(), gc_model)
     #     if k % 5 == 0:
     #         print(f'at index {k}/{max_height_index}...')
-
     # print(f'{time.clock()-start_time} seconds needed to iterate over height and fill w_slice')
     print('OKAY SO SOMETHING is up with how w cube is flattened wrt to points and model_gc_with_heights'
           'need to figure out how to flatten w cube properly.')

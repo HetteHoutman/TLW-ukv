@@ -1,6 +1,6 @@
 def data_from_pp_filename(filename):
     """
-    # TODO look up proper name of forecast time
+    # TODO look up proper name for forecast time
     Returns the year, month, dat and "forecast time" of a pp file
     Parameters
     ----------
