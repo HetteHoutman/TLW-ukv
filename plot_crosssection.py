@@ -2,53 +2,28 @@ import cartopy.crs as ccrs
 import iris.coords
 import iris.plot as iplt
 import matplotlib.cm as mpl_cm
-import matplotlib.colors as colors
 import matplotlib.pyplot as plt
 from pyproj import Geod
 
 import thermodynamics as th
+from cube_processing import cube_at_single_level, check_level_heights, cube_slice
+from general_plotting_fns import centred_cnorm
 from iris_read import *
+from miscellaneous import make_great_circle_points
 from plot_profile_from_UKV import convert_to_ukv_coords
 from plot_xsect import get_grid_latlon_from_rotated, add_grid_latlon_to_cube, get_coord_index
+from pp_processing import data_from_pp_filename
 from sonde_locs import sonde_locs
 from thermodynamics import potential_temperature
 
 
-def centred_cnorm(data):
-    w_min = data.min()
-    w_max = data.max()
-    range_max = max(abs(w_max), abs(w_min))
-    return colors.Normalize(vmin=-range_max, vmax=range_max)
-
-def check_level_heights(q, t):
-    """check whether q and Temperature cubes have same level heights and adjust if necessary."""
-    if q.coord('level_height').points[0] == t.coord('level_height').points[0]:
-        pass
-    elif q.coord('level_height').points[1] == t.coord('level_height').points[0]:
-        q = q[1:]
-    else:
-        raise ValueError('Double check the T and q level_heights - they do not match')
-    return q
-
-
-def plot_xsect(w, theta, RH, orog_cube, max_height=5000, cmap=mpl_cm.get_cmap("brewer_PuOr_11"),
+def plot_xsect(w_section, theta_section, RH_section, orog_section, max_height=5000, cmap=mpl_cm.get_cmap("brewer_PuOr_11"),
                coords=None):
     """plots the cross-section with filled contours of w and normal contours of theta and RH"""
     if coords is None:
         coords = ['longitude', 'altitude']
 
     plt.figure()
-
-    w_height_mask = (w.coord('level_height').points < 1.1 * max_height)
-    t_height_mask = (theta.coord('level_height').points < 1.1 * max_height)
-
-    # currently plots cross-section along a model latitude!
-    # this is not the same as a true latitude (even though that is displayed on the axis)!
-    # NB uses lat index etc as global variables!!
-    w_section = w[w_height_mask, lat_index, lon_index_west: lon_index_east + 1]
-    theta_section = theta[t_height_mask, lat_index, lon_index_west: lon_index_east + 1]
-    RH_section = RH[t_height_mask, lat_index, lon_index_west: lon_index_east + 1]
-    orog_section = orog_cube[lat_index, lon_index_west:lon_index_east + 1]
 
     w_con = iplt.contourf(w_section, coords=coords,
                           cmap=cmap, norm=centred_cnorm(w_section.data))
@@ -118,71 +93,6 @@ def plot_xsect_map(cube_single_level, cmap=mpl_cm.get_cmap("brewer_PuOr_11"), st
     plt.tight_layout()
     plt.savefig(f'plots/xsect_map_lat{lat}_{year}{month}{day}_{h}.png', dpi=300)
     plt.show()
-
-
-def cube_at_single_level(cube, map_height, bottomleft=None, topright=None):
-    """
-    returns the cube at a selected level_height and between bottom left and top right bounds
-    Parameters
-    ----------
-    cube
-    map_height
-    bottomleft : tuple
-        lon/lat for the bottom left point of the map
-    topright : tuple
-        lon/lat for the top right point of the map
-    Returns
-    -------
-
-    """
-    bl_model = crs_rotated.transform_point(bottomleft[0], bottomleft[1], crs_latlon)
-    tr_model = crs_rotated.transform_point(topright[0], topright[1], crs_latlon)
-    # TODO change level_height to altitude
-    height_index = cube.coord('level_height').nearest_neighbour_index(map_height)
-    w_single_level = cube[height_index].intersection(grid_latitude=(bl_model[1], tr_model[1]),
-                                                     grid_longitude=(bl_model[0], tr_model[0]))
-    return w_single_level
-
-
-def make_great_circle_points(start, end):
-    """
-    returns an array of n lon/lat pairs on great circle between (lon, lat) of start and end points
-    Parameters
-    ----------
-    start : tuple
-        (lon, lat) of start point
-    end : tuple
-        (lon, lat) of end point
-
-    Returns
-    -------
-    ndarray
-        lon/lat pairs of points on great circle
-    """
-    # TODO include start and end points
-    g = Geod(ellps='WGS84')
-    great_circle = np.array(g.npts(*start, *end, 100)).T
-    return great_circle
-
-
-def data_from_pp_filename(filename):
-    """
-    # TODO look up proper name of forecast time
-    Returns the year, month, dat and "forecast time" of a pp file
-    Parameters
-    ----------
-    filename
-
-    Returns
-    -------
-
-    """
-    year = filename[-18:-14]
-    month = filename[-14:-12]
-    day = filename[-12:-10]
-    forecast_time = filename[-9:-7]
-
-    return year, month, day, forecast_time
 
 
 if __name__ == '__main__':
@@ -257,16 +167,26 @@ if __name__ == '__main__':
     lon_index_east = w_cube.coord('grid_longitude').nearest_neighbour_index(model_eastbound)
 
     map_height = 750
-    bottomleft = (-10.5, 51.6)
-    topright = (-9.25, 52.1)
+    map_bottomleft = (-10.5, 51.6)
+    map_topright = (-9.25, 52.1)
+
+    xs_bottomleft = (-10.4, 51.9)
+    xs_topright = (-9.25, 51.9)
+    max_height = 5000
 
     gc_start = (-10.4, 51.9)
     gc_end = (-9.4, 51.9)
 
-    w_single_level = cube_at_single_level(w_cube, map_height, bottomleft=bottomleft, topright=topright)
+    w_single_level = cube_at_single_level(w_cube, map_height, bottomleft=map_bottomleft, topright=map_topright)
+
+    w_section = cube_slice(w_cube, xs_bottomleft, xs_topright, height=(0, max_height), force_latitude=True)
+    theta_section = cube_slice(theta_cube, xs_bottomleft, xs_topright, height=(0, max_height), force_latitude=True)
+    RH_section = cube_slice(RH_cube, xs_bottomleft, xs_topright, height=(0, max_height), force_latitude=True)
+    orog_section = cube_slice(orog_cube, xs_bottomleft, xs_topright, force_latitude=True)
+
 
     plot_xsect_map(w_single_level, start=gc_start, end=gc_end)
-    plot_xsect(w_cube, theta_cube, RH_cube, orog_cube)
+    plot_xsect(w_section, theta_section, RH_section, orog_section)
 
 
     # ---------------- new -------------------
@@ -284,8 +204,8 @@ if __name__ == '__main__':
     gc_model = np.array([crs_rotated.transform_point(gc[0,i], gc[1,i], crs_latlon) for i in range(len(gc[0]))])
     # gc_model[:,0] += 360
 
-    bl_model = crs_rotated.transform_point(bottomleft[0], bottomleft[1], crs_latlon)
-    tr_model = crs_rotated.transform_point(topright[0], topright[1], crs_latlon)
+    bl_model = crs_rotated.transform_point(map_bottomleft[0], map_bottomleft[1], crs_latlon)
+    tr_model = crs_rotated.transform_point(map_topright[0], map_topright[1], crs_latlon)
 
     max_height = 5000
     max_height_index = w.coord('level_height').nearest_neighbour_index(max_height * 1.1)
