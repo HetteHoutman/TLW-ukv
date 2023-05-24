@@ -1,11 +1,11 @@
 import time
+
 import cartopy.crs as ccrs
 import iris.coords
 import iris.plot as iplt
 import matplotlib.cm as mpl_cm
 import matplotlib.pyplot as plt
 from scipy.interpolate import griddata
-import matplotlib as mpl
 
 import thermodynamics as th
 from cube_processing import cube_at_single_level, check_level_heights, cube_slice, new_cube_from_array_and_cube
@@ -129,6 +129,7 @@ def plot_interpolated_xsect(xsect, cmap=mpl_cm.get_cmap("brewer_PuOr_11")):
     """
     plt.contourf(xsect, norm=centred_cnorm(xsect), cmap=cmap)
     plt.savefig('plots/interpolated_xsect_test.png', dpi=300)
+    plt.show()
 
 
 def produce_xsect(cube, n=50, gc_start=None, gc_end=None):
@@ -148,55 +149,35 @@ def produce_xsect(cube, n=50, gc_start=None, gc_end=None):
     crs_rotated = cube.coord('grid_latitude').coord_system.as_cartopy_crs()
 
     gc = make_great_circle_points(gc_start, gc_end, n)
-    # gc_model = np.array([crs_rotated.transform_point(gc[0, i], gc[1, i], crs_latlon) for i in range(len(gc[0]))])
     gc_model = np.array([convert_to_ukv_coords(gc[0, i], gc[1, i], crs_latlon, crs_rotated) for i in range(len(gc[0]))])
-    # gc_model[:,0] += 360
-    # bl_model = crs_rotated.transform_point(map_bottomleft[0], map_bottomleft[1], crs_latlon)
-    # tr_model = crs_rotated.transform_point(map_topright[0], map_topright[1], crs_latlon)
-    # max_height = 5000
-    # max_height_index = w.coord('level_height').nearest_neighbour_index(max_height * 1.1)
-    # w = w[:max_height_index].intersection(grid_latitude=(bl_model[1], tr_model[1]),
-    #                                       grid_longitude=(bl_model[0], tr_model[0]))
-    # grid = np.moveaxis(np.array(np.meshgrid(w.coord('grid_longitude').points, w.coord('grid_latitude').points)), 0, -1)
-
     grid = np.moveaxis(np.array(np.meshgrid(cube.coord('level_height').points,
                                             cube.coord('grid_longitude').points,
                                             cube.coord('grid_latitude').points)),
                        [0, 1, 2, 3], [-1, 2, 0, 1])
     points = grid.reshape(-1, grid.shape[-1])
+
     broadcast_lheights = np.broadcast_to(cube.coord('level_height').points, (n, cube.coord('level_height').points.shape[0])).T
-    print(broadcast_lheights.shape)
     broadcast_gc = np.broadcast_to(gc_model, (cube.coord('level_height').points.shape[0], *gc_model.shape))
-    print(broadcast_gc.shape)
+
     # combine
     model_gc_with_heights = np.concatenate((broadcast_lheights[:, :, np.newaxis], broadcast_gc), axis=-1)
+
     start_time = time.clock()
     print('start interpolation...')
     xsect = griddata(points, cube[:, ::-1].data.flatten(), model_gc_with_heights)
     print(f'{time.clock() - start_time} seconds needed to interpolate')
+
     return xsect
 
+def load_and_process(reg_filename, orog_filename):
+    w_cube = read_variable(reg_filename, 150, h)
+    t_cube = read_variable(reg_filename, 16004, h)
+    p_cube = read_variable(reg_filename, 408, h)
+    q_cube = read_variable(reg_filename, 10, h)
+    orog_cube = read_variable(orog_filename, 33, 9)
 
-if __name__ == '__main__':
-
-    # TODO now that it is stable, put into main function?
-    # read file
-    indir = '/home/users/sw825517/Documents/ukv_data/'
-    filename = indir + 'prodm_op_ukv_20150414_09_004.pp'
-
-    year, month, day, forecast_time = data_from_pp_filename(filename)
-    h = 12
-
-    w_cube = read_variable(filename, 150, h)
-    t_cube = read_variable(filename, 16004, h)
-    p_cube = read_variable(filename, 408, h)
-    q_cube = read_variable(filename, 10, h)
-
+    # check level heights
     q_cube = check_level_heights(q_cube, t_cube)
-
-    orog_file = indir + 'prods_op_ukv_20150414_09_000.pp'
-    # TODO might be easier not to use read_variable but just iris.load
-    orog_cube = read_variable(orog_file, 33, 9)
 
     # add true lat lon
     grid_latlon = get_grid_latlon_from_rotated(w_cube)
@@ -213,16 +194,31 @@ if __name__ == '__main__':
     # now add orography hybrid height factory to desired cubes
     w_cube, theta_cube, RH_cube = add_orography(orog_cube, w_cube, theta_cube, RH_cube)
 
-    map_height = 750
+    return w_cube, theta_cube, RH_cube, orog_cube
+
+
+if __name__ == '__main__':
+
+    indir = '/home/users/sw825517/Documents/ukv_data/'
+    reg_file = indir + 'prodm_op_ukv_20150414_09_004.pp'
+    orog_file = indir + 'prods_op_ukv_20150414_09_000.pp'
+
+    h = 12
+
     map_bottomleft = (-10.5, 51.6)
     map_topright = (-9.25, 52.1)
+    map_height = 750
 
     xs_bottomleft = (-10.4, 51.9)
     xs_topright = (-9.25, 51.9)
     max_height = 5000
 
     gc_start = (-10.4, 51.9)
-    gc_end = (-9.4, 51.9)
+    gc_end = (-9.25, 51.9)
+
+    year, month, day, forecast_time = data_from_pp_filename(reg_file)
+
+    w_cube, theta_cube, RH_cube, orog_cube = load_and_process(reg_file, orog_file)
 
     w_single_level = cube_at_single_level(w_cube, map_height, bottomleft=map_bottomleft, topright=map_topright)
     plot_xsect_map(w_single_level, start=gc_start, end=gc_end)
@@ -231,14 +227,10 @@ if __name__ == '__main__':
     theta_section = cube_slice(theta_cube, xs_bottomleft, xs_topright, height=(0, max_height), force_latitude=True)
     RH_section = cube_slice(RH_cube, xs_bottomleft, xs_topright, height=(0, max_height), force_latitude=True)
     orog_section = cube_slice(orog_cube, xs_bottomleft, xs_topright, force_latitude=True)
-
     plot_xsect_latitude(w_section, theta_section, RH_section, orog_section)
 
-
-    # ---------------- new -------------------
     w_sliced = cube_slice(w_cube, map_bottomleft, map_topright, height=(0, max_height))
     w_xsect = produce_xsect(w_sliced, gc_start=gc_start, gc_end=gc_end)
-
     plot_interpolated_xsect(w_xsect)
 
 
