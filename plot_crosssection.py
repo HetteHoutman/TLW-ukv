@@ -55,6 +55,10 @@ def plot_xsect_map(cube_single_level, cmap=mpl_cm.get_cmap("brewer_PuOr_11"), st
     ----------
     cube_single_level : Cube
         the single level cube to be plotted (can only have height coordinate as aux coord)
+    lon_bounds : tuple
+        longitude bounds of map
+    lat_bounds : tuple
+        latitude bounds of map
     cmap :
         colors
     end : tuple
@@ -166,16 +170,24 @@ if __name__ == '__main__':
     w_single_level = cube_at_single_level(w_cube, map_height, bottomleft=map_bottomleft, topright=map_topright)
     plot_xsect_map(w_single_level, start=gc_start, end=gc_end)
 
-    w_section = cube_slice(w_cube, xs_bottomleft, xs_topright, height=(0, max_height), force_latitude=True)
-    theta_section = cube_slice(theta_cube, xs_bottomleft, xs_topright, height=(0, max_height), force_latitude=True)
-    RH_section = cube_slice(RH_cube, xs_bottomleft, xs_topright, height=(0, max_height), force_latitude=True)
-    orog_section = cube_slice(orog_cube, xs_bottomleft, xs_topright, force_latitude=True)
-    plot_xsect_latitude(w_section, theta_section, RH_section, orog_section)
+    # w_section = cube_slice(w_cube, xs_bottomleft, xs_topright, height=(0, max_height), force_latitude=True)
+    # theta_section = cube_slice(theta_cube, xs_bottomleft, xs_topright, height=(0, max_height), force_latitude=True)
+    # RH_section = cube_slice(RH_cube, xs_bottomleft, xs_topright, height=(0, max_height), force_latitude=True)
+    # orog_section = cube_slice(orog_cube, xs_bottomleft, xs_topright, force_latitude=True)
+    # plot_xsect_latitude(w_section, theta_section, RH_section, orog_section)
 
     w_sliced = cube_slice(w_cube, map_bottomleft, map_topright, height=(0, max_height))
+    theta_sliced = cube_slice(theta_cube, map_bottomleft, map_topright, height=(0, max_height))
+    RH_sliced = cube_slice(RH_cube, map_bottomleft, map_topright, height=(0, max_height))
     w_xsect = great_circle_xsect(w_sliced, gc_start=gc_start, gc_end=gc_end, n=200)
+    theta_xsect = great_circle_xsect(theta_sliced, gc_start=gc_start, gc_end=gc_end, n=200)
+    RH_xsect = great_circle_xsect(RH_sliced, gc_start=gc_start, gc_end=gc_end, n=200)
+    # orog_xsect = great_circle_xsect(w_sliced, gc_start=gc_start, gc_end=gc_end, n=200)
     plot_interpolated_xsect(w_xsect)
 
+    # TODO get xsect to work for orography cube
+    # TODO plot height (then altitude if possible) on y axis of plot s.t. w and theta are plotted correctly
+    # figure out some way of plotting a representative x axis
 
 
 
@@ -190,7 +202,7 @@ if __name__ == '__main__':
     #         print(f'at index {k}/{max_height_index}...')
     # print(f'{time.clock()-start_time} seconds needed to iterate over height and fill w_slice')
 
-    print(f'ask Sue for her oblique xsect code to compare')
+    # TODO ask Sue for her oblique xsect code to compare
     """def plot(bl, tr):
     ...:     new_crs = ccrs.RotatedPole(pole_latitude=bl[1], pole_longitude=bl[0])
     ...:     rot = new_crs.transform_point(*tr, crs_latlon)[0]
