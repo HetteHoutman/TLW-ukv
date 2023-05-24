@@ -20,6 +20,7 @@ from thermodynamics import potential_temperature
 def plot_xsect(w_section, theta_section, RH_section, orog_section, max_height=5000, cmap=mpl_cm.get_cmap("brewer_PuOr_11"),
                coords=None):
     """plots the cross-section with filled contours of w and normal contours of theta and RH"""
+    # TODO mention that this function is just plots along a latitude as a sanity check for the interpolation
     if coords is None:
         coords = ['longitude', 'altitude']
 

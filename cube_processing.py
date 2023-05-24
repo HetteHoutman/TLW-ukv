@@ -70,11 +70,10 @@ def cube_slice(cube, bottom_left, top_right, height=None, force_latitude=False):
         raise Exception('you gave heights but the cube is not 3 dimensional')
 
     if force_latitude:
-        lat_idxs[1] = lat_idxs[0]
-    print(lon_idxs, lat_idxs)
-
-    # this slices the last two dimensions regardless of how many are in front of them
-    return cube[..., lat_idxs[0] : lat_idxs[1] + 1, lon_idxs[0] : lon_idxs[1] + 1]
+        # this slices the last two dimensions regardless of how many are in front of them
+        return cube[..., lat_idxs[0], lon_idxs[0] : lon_idxs[1] + 1]
+    else:
+        return cube[..., lat_idxs[0] : lat_idxs[1] + 1, lon_idxs[0] : lon_idxs[1] + 1]
 
 
 
