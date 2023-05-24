@@ -148,16 +148,16 @@ if __name__ == '__main__':
 
     h = 12
 
-    map_bottomleft = (-10.5, 51.6)
-    map_topright = (-9.25, 52.1)
+    map_bottomleft = (-9.6, 51.6)
+    map_topright = (-8.9, 52.1)
     map_height = 750
 
     xs_bottomleft = (-10.4, 51.9)
     xs_topright = (-9.25, 51.9)
     max_height = 5000
 
-    gc_start = (-10.4, 51.9)
-    gc_end = (-9.25, 51.9)
+    gc_start = (-9.5, 51.8)
+    gc_end = (-9, 52)
 
     year, month, day, forecast_time = data_from_pp_filename(reg_file)
 
@@ -173,7 +173,7 @@ if __name__ == '__main__':
     plot_xsect_latitude(w_section, theta_section, RH_section, orog_section)
 
     w_sliced = cube_slice(w_cube, map_bottomleft, map_topright, height=(0, max_height))
-    w_xsect = great_circle_xsect(w_sliced, gc_start=gc_start, gc_end=gc_end)
+    w_xsect = great_circle_xsect(w_sliced, gc_start=gc_start, gc_end=gc_end, n=200)
     plot_interpolated_xsect(w_xsect)
 
 
