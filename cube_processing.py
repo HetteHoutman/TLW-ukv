@@ -152,7 +152,7 @@ def great_circle_xsect(cube, great_circle, n=50):
     crs_latlon = ccrs.PlateCarree()
     crs_rotated = cube.coord('grid_latitude').coord_system.as_cartopy_crs()
 
-    gc_model = np.array([convert_to_ukv_coords(great_circle[0, i], great_circle[1, i], crs_latlon, crs_rotated) for i in range(len(great_circle[0]))])
+    gc_model = np.array([convert_to_ukv_coords(coords[0], coords[1], crs_latlon, crs_rotated) for coords in great_circle.T])
     grid = np.moveaxis(np.array(np.meshgrid(cube.coord('level_height').points,
                                             cube.coord('grid_longitude').points,
                                             cube.coord('grid_latitude').points)),
