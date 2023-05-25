@@ -8,7 +8,8 @@ from cube_processing import cube_at_single_level, check_level_heights, cube_slic
     great_circle_xsect, add_orography
 from general_plotting_fns import centred_cnorm
 from iris_read import *
-from miscellaneous import make_great_circle_points
+from miscellaneous import make_great_circle_points, make_great_circle_iris_traj
+from plot_profile_from_UKV import convert_to_ukv_coords
 from plot_xsect import get_grid_latlon_from_rotated, add_grid_latlon_to_cube
 from pp_processing import data_from_pp_filename
 from sonde_locs import sonde_locs
@@ -187,17 +188,25 @@ if __name__ == '__main__':
     w_sliced = cube_slice(w_cube, map_bottomleft, map_topright, height=(0, max_height))
     theta_sliced = cube_slice(theta_cube, map_bottomleft, map_topright, height=(0, max_height))
     RH_sliced = cube_slice(RH_cube, map_bottomleft, map_topright, height=(0, max_height))
-    w_xsect = great_circle_xsect(w_sliced, gc, n=200)
-    theta_xsect = great_circle_xsect(theta_sliced, gc, n=200)
-    RH_xsect = great_circle_xsect(RH_sliced, gc, n=200)
+    # w_xsect = great_circle_xsect(w_sliced, gc, n=200)
+    # theta_xsect = great_circle_xsect(theta_sliced, gc, n=200)
+    # RH_xsect = great_circle_xsect(RH_sliced, gc, n=200)
     # orog_xsect = great_circle_xsect(w_sliced, gc_start=gc_start, gc_end=gc_end, n=200)
+    #
+    # plot_interpolated_xsect(w_xsect, theta_xsect, RH_xsect, w_sliced.coord('level_height').points,
+    #                         theta_sliced.coord('level_height').points, gc)
 
-    plot_interpolated_xsect(w_xsect, theta_xsect, RH_xsect, w_sliced.coord('level_height').points,
-                            theta_sliced.coord('level_height').points, gc)
+    crs_latlon = ccrs.PlateCarree()
+    crs_rotated = w_cube.coord('grid_latitude').coord_system.as_cartopy_crs()
+    gc_model = np.array(
+        [convert_to_ukv_coords(coords[0], coords[1], crs_latlon, crs_rotated) for coords in gc.T])
 
-    # TODO get xsect to work for orography cube
-    # TODO plot altitude instead of level_height
-    # TODO figure out some way of plotting a representative x axis
+    traj = make_great_circle_iris_traj(gc_model, 200)
+    result = traj.interpolate(w_sliced, method='linear')
+    iplt.contourf(result)
+    plt.show()
+
+    # TODO so somehow this thinks i'm giving
 
 
 
