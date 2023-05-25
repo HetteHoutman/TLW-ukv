@@ -127,7 +127,7 @@ def cube_from_array_and_cube(array, copy_cube, unit=None, std_name=None):
     return new_cube
 
 
-def great_circle_xsect(cube, n=50, gc_start=None, gc_end=None):
+def great_circle_xsect(cube, great_circle, n=50):
     """
     Produces an interpolated cross-section of cube along a great circle between gc_start and gc_end
     (uses the level_heights of the cube)
@@ -152,8 +152,7 @@ def great_circle_xsect(cube, n=50, gc_start=None, gc_end=None):
     crs_latlon = ccrs.PlateCarree()
     crs_rotated = cube.coord('grid_latitude').coord_system.as_cartopy_crs()
 
-    gc = make_great_circle_points(gc_start, gc_end, n)
-    gc_model = np.array([convert_to_ukv_coords(gc[0, i], gc[1, i], crs_latlon, crs_rotated) for i in range(len(gc[0]))])
+    gc_model = np.array([convert_to_ukv_coords(great_circle[0, i], great_circle[1, i], crs_latlon, crs_rotated) for i in range(len(great_circle[0]))])
     grid = np.moveaxis(np.array(np.meshgrid(cube.coord('level_height').points,
                                             cube.coord('grid_longitude').points,
                                             cube.coord('grid_latitude').points)),

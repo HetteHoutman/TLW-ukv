@@ -47,8 +47,7 @@ def plot_xsect_latitude(w_section, theta_section, RH_section, orog_section, max_
     plt.show()
 
 
-def plot_xsect_map(cube_single_level, cmap=mpl_cm.get_cmap("brewer_PuOr_11"), start=(-10.35, 51.9), end=(-6, 55),
-                   custom_save=''):
+def plot_xsect_map(cube_single_level, great_circle=None, cmap=mpl_cm.get_cmap("brewer_PuOr_11"), custom_save=''):
     """
     Plots the map indicating the cross-section, in addition to the w field.
     Parameters
@@ -72,10 +71,7 @@ def plot_xsect_map(cube_single_level, cmap=mpl_cm.get_cmap("brewer_PuOr_11"), st
     w_con = iplt.contourf(cube_single_level, coords=['longitude', 'latitude'],
                           cmap=cmap, norm=centred_cnorm(cube_single_level.data))
 
-    if (start is None) or (end is None):
-        pass
-    else:
-        great_circle = make_great_circle_points(start, end, 50)
+    if great_circle is not None:
         ax.plot(great_circle[0], great_circle[1], color='k', zorder=50)
 
     plt.scatter(*sonde_locs['valentia'], marker='*', color='r', edgecolors='k', s=250, zorder=100)
@@ -169,8 +165,10 @@ if __name__ == '__main__':
 
     w_cube, theta_cube, RH_cube, orog_cube = load_and_process(reg_file, orog_file)
 
+    gc = make_great_circle_points(gc_start, gc_end, n=200)
+
     w_single_level = cube_at_single_level(w_cube, map_height, bottomleft=map_bottomleft, topright=map_topright)
-    plot_xsect_map(w_single_level, start=gc_start, end=gc_end)
+    plot_xsect_map(w_single_level, great_circle=gc)
 
     # w_section = cube_slice(w_cube, xs_bottomleft, xs_topright, height=(0, max_height), force_latitude=True)
     # theta_section = cube_slice(theta_cube, xs_bottomleft, xs_topright, height=(0, max_height), force_latitude=True)
@@ -181,9 +179,9 @@ if __name__ == '__main__':
     w_sliced = cube_slice(w_cube, map_bottomleft, map_topright, height=(0, max_height))
     theta_sliced = cube_slice(theta_cube, map_bottomleft, map_topright, height=(0, max_height))
     RH_sliced = cube_slice(RH_cube, map_bottomleft, map_topright, height=(0, max_height))
-    w_xsect = great_circle_xsect(w_sliced, gc_start=gc_start, gc_end=gc_end, n=200)
-    theta_xsect = great_circle_xsect(theta_sliced, gc_start=gc_start, gc_end=gc_end, n=200)
-    RH_xsect = great_circle_xsect(RH_sliced, gc_start=gc_start, gc_end=gc_end, n=200)
+    w_xsect = great_circle_xsect(w_sliced, gc, n=200)
+    theta_xsect = great_circle_xsect(theta_sliced, gc, n=200)
+    RH_xsect = great_circle_xsect(RH_sliced, gc, n=200)
     # orog_xsect = great_circle_xsect(w_sliced, gc_start=gc_start, gc_end=gc_end, n=200)
 
     plot_interpolated_xsect(w_xsect, theta_xsect, RH_xsect)
