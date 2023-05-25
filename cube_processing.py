@@ -129,7 +129,8 @@ def cube_from_array_and_cube(array, copy_cube, unit=None, std_name=None):
 
 def great_circle_xsect(cube, n=50, gc_start=None, gc_end=None):
     """
-    Produces an interpolated cross-section of cube along a great circle between gc_start and gc_end (uses the level_height of the cube)
+    Produces an interpolated cross-section of cube along a great circle between gc_start and gc_end
+    (uses the level_heights of the cube)
     Parameters
     ----------
     cube : Cube
