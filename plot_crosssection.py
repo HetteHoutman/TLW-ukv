@@ -91,11 +91,17 @@ def plot_xsect_map(cube_single_level, great_circle=None, cmap=mpl_cm.get_cmap("b
     plt.show()
 
 
-def plot_interpolated_xsect(w_xsect, theta_xsect, RH_xsect, cmap=mpl_cm.get_cmap("brewer_PuOr_11")):
+def plot_interpolated_xsect(w_xsect, theta_xsect, RH_xsect, w_y, theta_y, great_circle,
+                            cmap=mpl_cm.get_cmap("brewer_PuOr_11")):
     """
     Plots the interpolated cross-section
     Parameters
     ----------
+    great_circle
+    theta_y : ndarray
+        y coordinates belonging to theta_xsect
+    w_y : ndarray
+        y coordinates belonging to w_xsect
     theta_xsect
     RH_xsect
     w_xsect
@@ -105,10 +111,12 @@ def plot_interpolated_xsect(w_xsect, theta_xsect, RH_xsect, cmap=mpl_cm.get_cmap
     -------
 
     """
-    w_con = plt.contourf(w_xsect, norm=centred_cnorm(w_xsect), cmap=cmap)
-    theta_con = plt.contour(theta_xsect,
+    x_coords = great_circle[0]
+
+    w_con = plt.contourf(x_coords, w_y, w_xsect, norm=centred_cnorm(w_xsect), cmap=cmap)
+    theta_con = plt.contour(x_coords, theta_y, theta_xsect,
                              colors='k', linestyles='--')
-    RH_con = plt.contour(RH_xsect, levels=[0.75],
+    RH_con = plt.contour(x_coords, theta_y, RH_xsect, levels=[0.75],
                           colors='0.5', linestyles='-.')
     plt.savefig('plots/interpolated_xsect_test.png', dpi=300)
     plt.show()
@@ -154,8 +162,6 @@ if __name__ == '__main__':
     map_topright = (-8.9, 52.1)
     map_height = 750
 
-    xs_bottomleft = (-10.4, 51.9)
-    xs_topright = (-9.25, 51.9)
     max_height = 5000
 
     gc_start = (-9.5, 51.8)
@@ -170,6 +176,8 @@ if __name__ == '__main__':
     w_single_level = cube_at_single_level(w_cube, map_height, bottomleft=map_bottomleft, topright=map_topright)
     plot_xsect_map(w_single_level, great_circle=gc)
 
+    # xs_bottomleft = (-10.4, 51.9)
+    # xs_topright = (-9.25, 51.9)
     # w_section = cube_slice(w_cube, xs_bottomleft, xs_topright, height=(0, max_height), force_latitude=True)
     # theta_section = cube_slice(theta_cube, xs_bottomleft, xs_topright, height=(0, max_height), force_latitude=True)
     # RH_section = cube_slice(RH_cube, xs_bottomleft, xs_topright, height=(0, max_height), force_latitude=True)
@@ -184,10 +192,11 @@ if __name__ == '__main__':
     RH_xsect = great_circle_xsect(RH_sliced, gc, n=200)
     # orog_xsect = great_circle_xsect(w_sliced, gc_start=gc_start, gc_end=gc_end, n=200)
 
-    plot_interpolated_xsect(w_xsect, theta_xsect, RH_xsect)
+    plot_interpolated_xsect(w_xsect, theta_xsect, RH_xsect, w_sliced.coord('level_height').points,
+                            theta_sliced.coord('level_height').points, gc)
 
     # TODO get xsect to work for orography cube
-    # TODO plot height (then altitude if possible) on y axis of plot s.t. w and theta are plotted correctly
+    # TODO plot altitude instead of level_height
     # TODO figure out some way of plotting a representative x axis
 
 
