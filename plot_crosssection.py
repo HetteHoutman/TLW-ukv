@@ -55,10 +55,6 @@ def plot_xsect_map(cube_single_level, cmap=mpl_cm.get_cmap("brewer_PuOr_11"), st
     ----------
     cube_single_level : Cube
         the single level cube to be plotted (can only have height coordinate as aux coord)
-    lon_bounds : tuple
-        longitude bounds of map
-    lat_bounds : tuple
-        latitude bounds of map
     cmap :
         colors
     end : tuple
@@ -99,19 +95,25 @@ def plot_xsect_map(cube_single_level, cmap=mpl_cm.get_cmap("brewer_PuOr_11"), st
     plt.show()
 
 
-def plot_interpolated_xsect(xsect, cmap=mpl_cm.get_cmap("brewer_PuOr_11")):
+def plot_interpolated_xsect(w_xsect, theta_xsect, RH_xsect, cmap=mpl_cm.get_cmap("brewer_PuOr_11")):
     """
     Plots the interpolated cross-section
     Parameters
     ----------
-    xsect
+    theta_xsect
+    RH_xsect
+    w_xsect
     cmap
 
     Returns
     -------
 
     """
-    plt.contourf(xsect, norm=centred_cnorm(xsect), cmap=cmap)
+    w_con = plt.contourf(w_xsect, norm=centred_cnorm(w_xsect), cmap=cmap)
+    theta_con = plt.contour(theta_xsect,
+                             colors='k', linestyles='--')
+    RH_con = plt.contour(RH_xsect, levels=[0.75],
+                          colors='0.5', linestyles='-.')
     plt.savefig('plots/interpolated_xsect_test.png', dpi=300)
     plt.show()
 
@@ -183,7 +185,8 @@ if __name__ == '__main__':
     theta_xsect = great_circle_xsect(theta_sliced, gc_start=gc_start, gc_end=gc_end, n=200)
     RH_xsect = great_circle_xsect(RH_sliced, gc_start=gc_start, gc_end=gc_end, n=200)
     # orog_xsect = great_circle_xsect(w_sliced, gc_start=gc_start, gc_end=gc_end, n=200)
-    plot_interpolated_xsect(w_xsect)
+
+    plot_interpolated_xsect(w_xsect, theta_xsect, RH_xsect)
 
     # TODO get xsect to work for orography cube
     # TODO plot height (then altitude if possible) on y axis of plot s.t. w and theta are plotted correctly
