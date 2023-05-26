@@ -8,7 +8,7 @@ from cube_processing import cube_at_single_level, check_level_heights, cube_slic
     great_circle_xsect, add_orography
 from general_plotting_fns import centred_cnorm
 from iris_read import *
-from miscellaneous import make_great_circle_points, make_great_circle_iris_traj
+from miscellaneous import make_great_circle_points, make_great_circle_traj
 from plot_profile_from_UKV import convert_to_ukv_coords
 from plot_xsect import get_grid_latlon_from_rotated, add_grid_latlon_to_cube
 from pp_processing import data_from_pp_filename
@@ -150,6 +150,27 @@ def load_and_process(reg_filename, orog_filename):
 
     return w_cube, theta_cube, RH_cube, orog_cube
 
+def plot_xsect(w_xsect, theta_xsect, RH_xsect, max_height=5000):
+    w_con = iplt.contourf(w_xsect, cmap=cmap, norm=centred_cnorm(w_xsect.data))
+    theta_con = iplt.contour(theta_xsect, colors='k', linestyles='--')
+    RH_con = iplt.contour(RH_xsect, levels=[0.75], colors='0.5', linestyles='-.')
+
+    # iplt.plot(w_xsect.coord('fur'), orog_section, color='k')
+    orog = w_xsect.coord('surface_altitude').points
+    plt.fill_between(np.arange(len(orog)), orog, where=orog>0, color='k', interpolate=True)
+
+    plt.colorbar(w_con, label='Upward air velocity / m/s',
+                 # location='bottom',
+                 # orientation='vertical'
+                 )
+    plt.clabel(theta_con)
+
+    plt.ylabel('Altitude / m')
+    plt.ylim((0, max_height))
+    plt.xlabel('Points along great circle (need to update)')
+    plt.savefig('plots/interpolated_xsect_test.png', dpi=300)
+    plt.show()
+
 
 if __name__ == '__main__':
 
@@ -167,6 +188,7 @@ if __name__ == '__main__':
 
     gc_start = (-9.5, 51.8)
     gc_end = (-9, 52)
+    cmap = mpl_cm.get_cmap("brewer_PuOr_11")
 
     year, month, day, forecast_time = data_from_pp_filename(reg_file)
 
@@ -201,40 +223,15 @@ if __name__ == '__main__':
     gc_model = np.array(
         [convert_to_ukv_coords(coords[0], coords[1], crs_latlon, crs_rotated) for coords in gc.T])
 
-    traj = make_great_circle_iris_traj(gc_model, 200)
-    result = traj.interpolate(w_sliced, method='linear')
-    iplt.contourf(result)
-    plt.show()
-
-    # TODO so somehow this thinks i'm giving
-
-
+    traj = make_great_circle_traj(gc_model, 200)
+    # TODO check if more methods than linear are available
+    # TODO make function that accepts multiple cubes and interpolates them all and returns?
+    w_xsect = traj.interpolate(w_sliced, method='linear')
+    theta_xsect = traj.interpolate(theta_sliced, method='linear')
+    RH_xsect = traj.interpolate(RH_sliced, method='linear')
 
 
+    plot_xsect(w_xsect, theta_xsect, RH_xsect)
 
-
-    # w_slice = np.empty((max_height_index + 1, n))
-    # start_time = time.clock()
-    # for k in range(max_height_index + 1):
-    #     w_slice[k] = scipy.interpolate.griddata(points, w[k].data[::-1].flatten(), gc_model)
-    #     if k % 5 == 0:
-    #         print(f'at index {k}/{max_height_index}...')
-    # print(f'{time.clock()-start_time} seconds needed to iterate over height and fill w_slice')
 
     # TODO ask Sue for her oblique xsect code to compare
-    """def plot(bl, tr):
-    ...:     new_crs = ccrs.RotatedPole(pole_latitude=bl[1], pole_longitude=bl[0])
-    ...:     rot = new_crs.transform_point(*tr, crs_latlon)[0]
-    ...:     new_crs = ccrs.RotatedPole(pole_latitude=bl[1], pole_longitude=bl[0], central_rotated_longitude=-rot)
-    ...:     iplt.contourf(w[0])
-    ...:     ax = plt.gca()
-    ...:     ax.coastlines()
-    ...:     ax.gridlines(crs=new_crs)
-    ...:     gc = np.array(g.npts(*bl, *tr, n)).T
-    ...:     plt.plot(gc[0], gc[1], transform=crs_latlon)
-    ...:     plt.show()
-    ...:     return new_crs
-    
-    so can construct a projection that has great circle as a longitude line.
-    now need to figure out how to construct grid on this projection and then regrid w onto this new grid??
-"""
