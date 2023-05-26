@@ -1,13 +1,14 @@
+import iris.coords
 import iris.plot as iplt
 import matplotlib.cm as mpl_cm
 import matplotlib.pyplot as plt
 
+from sonde_locs import sonde_locs
 from useful import thermodynamics as th
 from useful.cube_processing import *
 from useful.general_plotting_fns import centred_cnorm
 from useful.miscellaneous import make_great_circle_points, convert_list_to_ukv_coords
 from useful.pp_processing import data_from_pp_filename
-from sonde_locs import sonde_locs
 
 
 # keep in mind that  the functions here might use global variables specific to this file
@@ -108,12 +109,14 @@ def plot_xsect(w_xsect, theta_xsect, RH_xsect, max_height=5000, cmap=mpl_cm.get_
     -------
 
     """
-    w_con = iplt.contourf(w_xsect, cmap=cmap, norm=centred_cnorm(w_xsect.data))
-    theta_con = iplt.contour(theta_xsect, colors='k', linestyles='--')
-    RH_con = iplt.contour(RH_xsect, levels=[0.75], colors='0.5', linestyles='-.')
+    coords = ['distance_from_start', 'altitude']
+    w_con = iplt.contourf(w_xsect, cmap=cmap, norm=centred_cnorm(w_xsect.data), coords=coords)
+    theta_con = iplt.contour(theta_xsect, colors='k', linestyles='--', coords=coords)
+    RH_con = iplt.contour(RH_xsect, levels=[0.75], colors='0.5', linestyles='-.', coords=coords)
 
     orog = w_xsect.coord('surface_altitude').points
-    plt.fill_between(np.arange(len(orog)), orog, where=orog>0, color='k', interpolate=True)
+    x = w_xsect.coord('distance_from_start').points
+    plt.fill_between(x, orog, where=orog>0, color='k', interpolate=True)
 
     plt.colorbar(w_con, label='Upward air velocity / m/s',
                  # location='bottom',
@@ -123,7 +126,8 @@ def plot_xsect(w_xsect, theta_xsect, RH_xsect, max_height=5000, cmap=mpl_cm.get_
 
     plt.ylabel('Altitude / m')
     plt.ylim((0, max_height))
-    plt.xlabel('Points along great circle (need to update)')
+    plt.xlabel('Distance along great circle / m')
+    # TODO save to proper name
     plt.savefig('plots/interpolated_xsect_test.png', dpi=300)
     plt.show()
 
@@ -154,6 +158,24 @@ def load_and_process(reg_filename, orog_filename):
 
     return w_cube, theta_cube, RH_cube
 
+def add_dist_coord(dists, *cubes):
+    """
+    adds dists as an AuxCoord to cube(s)
+    Parameters
+    ----------
+    dists
+    cubes
+
+    Returns
+    -------
+
+    """
+    dist_coord = iris.coords.AuxCoord(dists, long_name='distance_from_start', units='m')
+    for cube in cubes:
+        cube.add_aux_coord(dist_coord, data_dims=1)
+    return cubes
+
+
 
 if __name__ == '__main__':
 
@@ -180,7 +202,7 @@ if __name__ == '__main__':
     crs_rotated = cubes[0].coord('grid_latitude').coord_system.as_cartopy_crs()
 
     # make great circle for interpolation
-    geod, gc = make_great_circle_points(gc_start, gc_end, n=n)
+    gc, dists = make_great_circle_points(gc_start, gc_end, n=n)
     gc_model = convert_list_to_ukv_coords(gc[0], gc[1], crs_latlon, crs_rotated)
 
     # plot map for clarity
@@ -190,6 +212,8 @@ if __name__ == '__main__':
     # make cross-sections and plot them
     cubes_sliced = cube_slice(*cubes, bottom_left=map_bottomleft, top_right=map_topright, height=(0, max_height))
     cubes_xsect = cube_custom_line_interpolate(gc_model, *cubes_sliced)
+    cubes_xsect = add_dist_coord(dists, *cubes_xsect)
+
     plot_xsect(*cubes_xsect, max_height=max_height)
 
 
