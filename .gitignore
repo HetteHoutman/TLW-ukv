@@ -23,3 +23,4 @@
 /.idea/vcs.xml
 /plots/
 /wavelength_inversion.f
+/pclark_code/plot_xsect.py
