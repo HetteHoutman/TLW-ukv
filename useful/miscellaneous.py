@@ -18,14 +18,16 @@ def make_great_circle_points(start, end, n):
 
     Returns
     -------
-    Geod
-        pyproj.Geod instance
     ndarray
-        lon/lat pairs of points on great circle
+        of shape (2, n). lon/lat pairs of points on great circle
+    ndarray
+        of shape (n). corresponding distances of points along the great circle from start
     """
     g = Geod(ellps='WGS84')
+    _, _, dist = g.inv(*start, *end)
+    distances = np.linspace(0, dist, n)
     great_circle = np.array(g.npts(*start, *end, n, initial_idx=0, terminus_idx=0)).T
-    return g, great_circle
+    return great_circle, distances
 
 def make_custom_traj(sample_points):
     """
