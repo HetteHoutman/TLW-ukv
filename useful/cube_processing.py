@@ -7,7 +7,7 @@ import iris
 import numpy as np
 from scipy.interpolate import griddata
 
-from miscellaneous import make_custom_traj, convert_to_ukv_coords
+from useful.miscellaneous import make_custom_traj, convert_to_ukv_coords
 
 
 def read_variable(pp_file, code, hour_selected):

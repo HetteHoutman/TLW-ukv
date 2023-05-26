@@ -18,6 +18,8 @@ def make_great_circle_points(start, end, n):
 
     Returns
     -------
+    Geod
+        pyproj.Geod instance
     ndarray
         lon/lat pairs of points on great circle
     """

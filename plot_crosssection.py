@@ -180,7 +180,7 @@ if __name__ == '__main__':
     crs_rotated = cubes[0].coord('grid_latitude').coord_system.as_cartopy_crs()
 
     # make great circle for interpolation
-    gc = make_great_circle_points(gc_start, gc_end, n=n)
+    geod, gc = make_great_circle_points(gc_start, gc_end, n=n)
     gc_model = convert_list_to_ukv_coords(gc[0], gc[1], crs_latlon, crs_rotated)
 
     # plot map for clarity
