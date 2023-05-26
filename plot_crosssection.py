@@ -2,11 +2,11 @@ import iris.plot as iplt
 import matplotlib.cm as mpl_cm
 import matplotlib.pyplot as plt
 
-import thermodynamics as th
-from cube_processing import *
-from general_plotting_fns import centred_cnorm
-from miscellaneous import make_great_circle_points, convert_list_to_ukv_coords
-from pp_processing import data_from_pp_filename
+from useful import thermodynamics as th
+from useful.cube_processing import *
+from useful.general_plotting_fns import centred_cnorm
+from useful.miscellaneous import make_great_circle_points, convert_list_to_ukv_coords
+from useful.pp_processing import data_from_pp_filename
 from sonde_locs import sonde_locs
 
 

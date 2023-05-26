@@ -1,10 +1,10 @@
 import cartopy.crs as ccrs
 import matplotlib.pyplot as plt
 
-import thermodynamics as th
-from cube_processing import read_variable
-from met_functions import uv_to_spddir, N_squared, scorer_param
-from miscellaneous import convert_to_ukv_coords, index_selector
+from useful import thermodynamics as th
+from useful.cube_processing import read_variable
+from useful.met_functions import uv_to_spddir, N_squared, scorer_param
+from useful.miscellaneous import convert_to_ukv_coords, index_selector
 from plot_profile_from_txt import plot_profile
 
 if __name__ == '__main__':

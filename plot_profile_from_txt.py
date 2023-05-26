@@ -3,7 +3,7 @@ import sys
 import matplotlib.pyplot as plt
 import pandas as pd
 
-from met_functions import N_squared, scorer_param
+from useful.met_functions import N_squared, scorer_param
 
 
 def plot_profile(l2, height, N2U2, theta, wind, direction):
