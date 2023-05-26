@@ -1,12 +1,9 @@
-import cartopy.crs as ccrs
 import iris.plot as iplt
 import matplotlib.cm as mpl_cm
 import matplotlib.pyplot as plt
-import numpy as np
 
 import thermodynamics as th
-from cube_processing import cube_at_single_level, check_level_heights, cube_slice, cube_from_array_and_cube, \
-    add_orography, cube_custom_line_interpolate, read_variable, get_grid_latlon_from_rotated, add_grid_latlon_to_cube
+from cube_processing import *
 from general_plotting_fns import centred_cnorm
 from miscellaneous import make_great_circle_points, convert_list_to_ukv_coords
 from pp_processing import data_from_pp_filename
@@ -87,6 +84,7 @@ def plot_xsect_map(cube_single_level, great_circle=None, cmap=mpl_cm.get_cmap("b
               f'm {year}/{month}/{day} at {h}h ({forecast_time})')
 
     plt.tight_layout()
+    # keep in mind that year etc. are global variables
     plt.savefig(f'plots/xsect_map{custom_save}_{year}{month}{day}_{h}.png', dpi=300)
     plt.show()
 
@@ -156,7 +154,7 @@ def load_and_process(reg_filename, orog_filename):
     # now add orography hybrid height factory to desired cubes
     w_cube, theta_cube, RH_cube = add_orography(orog_cube, w_cube, theta_cube, RH_cube)
 
-    return w_cube, theta_cube, RH_cube, orog_cube
+    return w_cube, theta_cube, RH_cube
 
 
 if __name__ == '__main__':
@@ -175,24 +173,26 @@ if __name__ == '__main__':
     n = 200
     cmap = mpl_cm.get_cmap("brewer_PuOr_11")
 
+    # load
     year, month, day, forecast_time = data_from_pp_filename(reg_file)
-    # TODO to clean up further can just keep this as a list and unpack as function arguments later
-    w_cube, theta_cube, RH_cube, orog_cube = load_and_process(reg_file, orog_file)
-    gc = make_great_circle_points(gc_start, gc_end, n=n)
+    cubes = load_and_process(reg_file, orog_file)
 
+    # define coordinate systems
     crs_latlon = ccrs.PlateCarree()
-    crs_rotated = w_cube.coord('grid_latitude').coord_system.as_cartopy_crs()
+    crs_rotated = cubes[0].coord('grid_latitude').coord_system.as_cartopy_crs()
 
-    w_single_level = cube_at_single_level(w_cube, map_height, bottomleft=map_bottomleft, topright=map_topright)
-    plot_xsect_map(w_single_level, great_circle=gc)
-
-    w_sliced, theta_sliced, RH_sliced = cube_slice(w_cube, theta_cube, RH_cube,
-                                                   bottom_left=map_bottomleft, top_right=map_topright,
-                                                   height=(0, max_height))
+    # make great circle for interpolation
+    gc = make_great_circle_points(gc_start, gc_end, n=n)
     gc_model = convert_list_to_ukv_coords(gc[0], gc[1], crs_latlon, crs_rotated)
 
-    w_xsect, theta_xsect, RH_xsect = cube_custom_line_interpolate(gc_model, w_sliced, theta_sliced, RH_sliced)
-    plot_xsect(w_xsect, theta_xsect, RH_xsect)
+    # plot map for clarity
+    w_single_level = cube_at_single_level(cubes[0], map_height, bottomleft=map_bottomleft, topright=map_topright)
+    plot_xsect_map(w_single_level, great_circle=gc)
+
+    # make cross-sections and plot them
+    cubes_sliced = cube_slice(*cubes, bottom_left=map_bottomleft, top_right=map_topright, height=(0, max_height))
+    cubes_xsect = cube_custom_line_interpolate(gc_model, *cubes_sliced)
+    plot_xsect(*cubes_xsect, max_height=max_height)
 
 
     # this code below plots a crosssection along a latitude without interpolation
