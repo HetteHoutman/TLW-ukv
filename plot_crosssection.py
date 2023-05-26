@@ -5,11 +5,11 @@ import matplotlib.pyplot as plt
 
 import thermodynamics as th
 from cube_processing import cube_at_single_level, check_level_heights, cube_slice, cube_from_array_and_cube, \
-    great_circle_xsect, add_orography
+    add_orography, cube_custom_line_interpolate
 from general_plotting_fns import centred_cnorm
 from iris_read import *
 from miscellaneous import make_great_circle_points, make_custom_traj
-from plot_profile_from_UKV import convert_to_ukv_coords
+from plot_profile_from_UKV import convert_to_ukv_coords, convert_list_to_ukv_coords
 from plot_xsect import get_grid_latlon_from_rotated, add_grid_latlon_to_cube
 from pp_processing import data_from_pp_filename
 from sonde_locs import sonde_locs
@@ -157,8 +157,12 @@ if __name__ == '__main__':
     cmap = mpl_cm.get_cmap("brewer_PuOr_11")
 
     year, month, day, forecast_time = data_from_pp_filename(reg_file)
+    # TODO to clean up further can just keep this as a list and unpack as function arguments later
     w_cube, theta_cube, RH_cube, orog_cube = load_and_process(reg_file, orog_file)
     gc = make_great_circle_points(gc_start, gc_end, n=n)
+
+    crs_latlon = ccrs.PlateCarree()
+    crs_rotated = w_cube.coord('grid_latitude').coord_system.as_cartopy_crs()
 
     w_single_level = cube_at_single_level(w_cube, map_height, bottomleft=map_bottomleft, topright=map_topright)
     plot_xsect_map(w_single_level, great_circle=gc)
@@ -166,21 +170,11 @@ if __name__ == '__main__':
     w_sliced, theta_sliced, RH_sliced = cube_slice(w_cube, theta_cube, RH_cube,
                                                    bottom_left=map_bottomleft, top_right=map_topright,
                                                    height=(0, max_height))
-    crs_latlon = ccrs.PlateCarree()
-    crs_rotated = w_cube.coord('grid_latitude').coord_system.as_cartopy_crs()
-    gc_model = np.array(
-        [convert_to_ukv_coords(coords[0], coords[1], crs_latlon, crs_rotated) for coords in gc.T])
+    gc_model = convert_list_to_ukv_coords(gc[0], gc[1], crs_latlon, crs_rotated)
 
-    traj = make_custom_traj(gc_model)
-    # TODO make function that accepts multiple cubes and interpolates them all and returns?
-    w_xsect = traj.interpolate(w_sliced, method='linear')
-    theta_xsect = traj.interpolate(theta_sliced, method='linear')
-    RH_xsect = traj.interpolate(RH_sliced, method='linear')
-
+    w_xsect, theta_xsect, RH_xsect = cube_custom_line_interpolate(gc_model, w_sliced, theta_sliced, RH_sliced)
     plot_xsect(w_xsect, theta_xsect, RH_xsect)
 
-
-    # TODO ask Sue for her oblique xsect code to compare
 
     # this code below plots a crosssection along a latitude without interpolation
     # can be used to check whether interpolation makes sense

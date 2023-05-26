@@ -5,7 +5,7 @@ import iris
 import numpy as np
 from scipy.interpolate import griddata
 
-from miscellaneous import make_great_circle_points
+from miscellaneous import make_custom_traj
 from plot_profile_from_UKV import convert_to_ukv_coords
 from plot_xsect import get_coord_index
 
@@ -38,7 +38,8 @@ def cube_at_single_level(cube, map_height, bottomleft=None, topright=None):
 
 def cube_slice(*cubes, bottom_left=None, top_right=None, height=None, force_latitude=False):
     """
-    Returns a slice of cube between bottom_left (lon, lat) and top_right corners, and between heights
+    Returns slice(s) of cube(s) between bottom_left (lon, lat) and top_right corners, and between heights.
+    Currently, a tad unnecessarily complicated. Could be possibly be simplified using .intersection?
     Parameters
     ----------
     cubes : Cube
@@ -101,6 +102,7 @@ def check_level_heights(q, t):
         raise ValueError('Double check the T and q level_heights - they do not match')
     return q
 
+
 def cube_from_array_and_cube(array, copy_cube, unit=None, std_name=None):
     """
     Creates a new Cube by coping copy_cube and sticking in array as cube.data
@@ -132,8 +134,30 @@ def cube_from_array_and_cube(array, copy_cube, unit=None, std_name=None):
     return new_cube
 
 
+def cube_custom_line_interpolate(custom_line, *cubes):
+    """
+    Returns the cubes interpolated along the custom_line given.
+    Parameters
+    ----------
+    custom_line : ndarray
+        ndarray of shape (m, 2) in format lon/lat along which to interpolate the cube(s)
+    cubes : Cube
+        the cube(s) to interpolate
+
+    Returns
+    -------
+    """
+    new_cubes = []
+    traj = make_custom_traj(custom_line)
+    for cube in cubes:
+        new_cubes.append(traj.interpolate(cube, method='linear'))
+
+    return new_cubes
+
+
 def great_circle_xsect(cube, great_circle, n=50):
     """
+    Currently not used/working properly!
     Produces an interpolated cross-section of cube along a great circle between gc_start and gc_end
     (uses the level_heights of the cube)
     Parameters

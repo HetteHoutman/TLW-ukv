@@ -5,12 +5,15 @@ import thermodynamics as th
 from iris_read import *
 from plot_profile_from_txt import plot_profile, N_squared, scorer_param
 
-
+# TODO put general functions in appropriate files
 def convert_to_ukv_coords(x, y, in_crs, out_crs):
     """transforms coordinates given in crs in_crs to coordinates in crs out_crs.
     works at least for UKV rotated pole."""
     out_x, out_y = out_crs.transform_point(x, y, in_crs)
     return out_x + 360, out_y
+
+def convert_list_to_ukv_coords(x_list, y_list, in_crs, out_crs):
+    return np.array([convert_to_ukv_coords(x, y, in_crs, out_crs) for x, y in zip(x_list, y_list)])
 
 def index_selector(desired_value, array):
     """returns the index of the value in array that is closest to desired_value"""
