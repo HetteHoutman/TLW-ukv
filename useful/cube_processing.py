@@ -243,7 +243,7 @@ def cube_custom_line_interpolate(custom_line, *cubes):
 
 def great_circle_xsect(cube, great_circle, n=50):
     """
-    Currently not used/working properly!
+    !Currently not used/working properly!
     Produces an interpolated cross-section of cube along a great circle between gc_start and gc_end
     (uses the level_heights of the cube)
     Parameters
