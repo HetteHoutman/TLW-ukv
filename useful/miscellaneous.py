@@ -25,7 +25,7 @@ def make_great_circle_points(start, end, n):
     """
     g = Geod(ellps='WGS84')
     great_circle = np.array(g.npts(*start, *end, n, initial_idx=0, terminus_idx=0)).T
-    return great_circle
+    return g, great_circle
 
 def make_custom_traj(sample_points):
     """
