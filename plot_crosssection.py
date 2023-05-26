@@ -10,6 +10,7 @@ from useful.pp_processing import data_from_pp_filename
 from sonde_locs import sonde_locs
 
 
+# keep in mind that  the functions here might use global variables specific to this file
 def plot_xsect_latitude(w_section, theta_section, RH_section, orog_section, max_height=5000, cmap=mpl_cm.get_cmap("brewer_PuOr_11"),
                coords=None):
     """
@@ -61,7 +62,6 @@ def plot_xsect_map(cube_single_level, great_circle=None, cmap=mpl_cm.get_cmap("b
         optional addition to the save file name to distinguish it from others
     """
 
-    crs_latlon = ccrs.PlateCarree()
     fig, ax = plt.subplots(1, 1, subplot_kw={'projection': crs_latlon})
     ax.coastlines()
 
@@ -84,7 +84,6 @@ def plot_xsect_map(cube_single_level, great_circle=None, cmap=mpl_cm.get_cmap("b
               f'm {year}/{month}/{day} at {h}h ({forecast_time})')
 
     plt.tight_layout()
-    # keep in mind that year etc. are global variables
     plt.savefig(f'plots/xsect_map{custom_save}_{year}{month}{day}_{h}.png', dpi=300)
     plt.show()
 
@@ -113,7 +112,6 @@ def plot_xsect(w_xsect, theta_xsect, RH_xsect, max_height=5000, cmap=mpl_cm.get_
     theta_con = iplt.contour(theta_xsect, colors='k', linestyles='--')
     RH_con = iplt.contour(RH_xsect, levels=[0.75], colors='0.5', linestyles='-.')
 
-    # iplt.plot(w_xsect.coord('fur'), orog_section, color='k')
     orog = w_xsect.coord('surface_altitude').points
     plt.fill_between(np.arange(len(orog)), orog, where=orog>0, color='k', interpolate=True)
 
