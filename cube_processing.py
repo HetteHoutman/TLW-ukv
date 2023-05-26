@@ -36,53 +36,58 @@ def cube_at_single_level(cube, map_height, bottomleft=None, topright=None):
                                                    grid_longitude=(bl_model[0], tr_model[0]))
     return single_level
 
-def cube_slice(cube, bottom_left, top_right, height=None, force_latitude=False):
+def cube_slice(*cubes, bottom_left=None, top_right=None, height=None, force_latitude=False):
     """
     Returns a slice of cube between bottom_left (lon, lat) and top_right corners, and between heights
     Parameters
     ----------
+    cubes : Cube
+        the cube(s) to be sliced
+    bottom_left : tuple
+        lon/lat of the bottom left corner
+    top_right : tuple
+        lon/lat of the top right corner
+    height : tuple
+        range of heights between which to slice
     force_latitude : bool
         if True will set the top_right latitude index to the bottom_left latitude index
-    cube : Cube
-        the cube to be sliced
-    bottom_left : tuple
-        the bottom left corner
-    top_right : tuple
-    height : tuple
 
     Returns
     -------
 
     """
+
     crs_latlon = ccrs.PlateCarree()
-    crs_rotated = cube.coord('grid_latitude').coord_system.as_cartopy_crs()
+    crs_rotated = cubes[0].coord('grid_latitude').coord_system.as_cartopy_crs()
 
     bl_model = convert_to_ukv_coords(*bottom_left, crs_latlon, crs_rotated)
     tr_model = convert_to_ukv_coords(*top_right, crs_latlon, crs_rotated)
-    # bl_model = crs_rotated.transform_point(*bottom_left, crs_latlon)
-    # tr_model = crs_rotated.transform_point(*top_right, crs_latlon)
 
-    lat_idxs = [cube.coord('grid_latitude').nearest_neighbour_index(bl_model[1]),
-                cube.coord('grid_latitude').nearest_neighbour_index(tr_model[1])]
+    new_cubes=[]
 
-    lon_idxs = (cube.coord('grid_longitude').nearest_neighbour_index(bl_model[0]),
-                cube.coord('grid_longitude').nearest_neighbour_index(tr_model[0]))
+    for cube in cubes:
+        lat_idxs = [cube.coord('grid_latitude').nearest_neighbour_index(bl_model[1]),
+                    cube.coord('grid_latitude').nearest_neighbour_index(tr_model[1])]
 
-    # only slice the height if it is given and if there is a height coordinate
-    if (cube.ndim == 3) and height is not None:
-        height_idxs = (cube.coord('level_height').nearest_neighbour_index(height[0]),
-                       cube.coord('level_height').nearest_neighbour_index(height[1]))
+        lon_idxs = (cube.coord('grid_longitude').nearest_neighbour_index(bl_model[0]),
+                    cube.coord('grid_longitude').nearest_neighbour_index(tr_model[0]))
 
-        cube = cube[height_idxs[0] : height_idxs[1] + 1]
+        # only slice the height if it is given and if there is a height coordinate
+        if (cube.ndim == 3) and height is not None:
+            height_idxs = (cube.coord('level_height').nearest_neighbour_index(height[0]),
+                           cube.coord('level_height').nearest_neighbour_index(height[1]))
+            cube = cube[height_idxs[0] : height_idxs[1] + 1]
 
-    elif height is not None and cube.ndim != 3:
-        raise Exception('you gave heights but the cube is not 3 dimensional')
+        elif height is not None and cube.ndim != 3:
+            raise Exception('you gave heights but the cube is not 3 dimensional')
 
-    if force_latitude:
-        # this slices the last two dimensions regardless of how many are in front of them
-        return cube[..., lat_idxs[0], lon_idxs[0] : lon_idxs[1] + 1]
-    else:
-        return cube[..., lat_idxs[0] : lat_idxs[1] + 1, lon_idxs[0] : lon_idxs[1] + 1]
+        if force_latitude:
+            # ... ensures only the last two dimensions are sliced regardless of how many are in front of them
+            new_cubes.append(cube[..., lat_idxs[0], lon_idxs[0] : lon_idxs[1] + 1])
+        else:
+            new_cubes.append(cube[..., lat_idxs[0] : lat_idxs[1] + 1, lon_idxs[0] : lon_idxs[1] + 1])
+
+    return new_cubes
 
 
 

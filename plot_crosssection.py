@@ -8,7 +8,7 @@ from cube_processing import cube_at_single_level, check_level_heights, cube_slic
     great_circle_xsect, add_orography
 from general_plotting_fns import centred_cnorm
 from iris_read import *
-from miscellaneous import make_great_circle_points, make_great_circle_traj
+from miscellaneous import make_great_circle_points, make_custom_traj
 from plot_profile_from_UKV import convert_to_ukv_coords
 from plot_xsect import get_grid_latlon_from_rotated, add_grid_latlon_to_cube
 from pp_processing import data_from_pp_filename
@@ -26,7 +26,7 @@ def plot_xsect_latitude(w_section, theta_section, RH_section, orog_section, max_
 
     w_con = iplt.contourf(w_section, coords=coords,
                           cmap=cmap, norm=centred_cnorm(w_section.data))
-    theta_con = iplt.contour(theta_section, coords=coords,
+    theta_con = iplt.contour(theta_section, levels=5, coords=coords,
                              colors='k', linestyles='--')
     RH_con = iplt.contour(RH_section, levels=[0.75], coords=coords,
                           colors='0.5', linestyles='-.')
@@ -92,36 +92,26 @@ def plot_xsect_map(cube_single_level, great_circle=None, cmap=mpl_cm.get_cmap("b
     plt.show()
 
 
-def plot_interpolated_xsect(w_xsect, theta_xsect, RH_xsect, w_y, theta_y, great_circle,
-                            cmap=mpl_cm.get_cmap("brewer_PuOr_11")):
-    """
-    Plots the interpolated cross-section
-    Parameters
-    ----------
-    great_circle
-    theta_y : ndarray
-        y coordinates belonging to theta_xsect
-    w_y : ndarray
-        y coordinates belonging to w_xsect
-    theta_xsect
-    RH_xsect
-    w_xsect
-    cmap
+def plot_xsect(w_xsect, theta_xsect, RH_xsect, max_height=5000, cmap=mpl_cm.get_cmap("brewer_PuOr_11")):
+    w_con = iplt.contourf(w_xsect, cmap=cmap, norm=centred_cnorm(w_xsect.data))
+    theta_con = iplt.contour(theta_xsect, colors='k', linestyles='--')
+    RH_con = iplt.contour(RH_xsect, levels=[0.75], colors='0.5', linestyles='-.')
 
-    Returns
-    -------
+    # iplt.plot(w_xsect.coord('fur'), orog_section, color='k')
+    orog = w_xsect.coord('surface_altitude').points
+    plt.fill_between(np.arange(len(orog)), orog, where=orog>0, color='k', interpolate=True)
 
-    """
-    x_coords = great_circle[0]
+    plt.colorbar(w_con, label='Upward air velocity / m/s',
+                 # location='bottom',
+                 # orientation='vertical'
+                 )
+    plt.clabel(theta_con)
 
-    w_con = plt.contourf(x_coords, w_y, w_xsect, norm=centred_cnorm(w_xsect), cmap=cmap)
-    theta_con = plt.contour(x_coords, theta_y, theta_xsect,
-                             colors='k', linestyles='--')
-    RH_con = plt.contour(x_coords, theta_y, RH_xsect, levels=[0.75],
-                          colors='0.5', linestyles='-.')
+    plt.ylabel('Altitude / m')
+    plt.ylim((0, max_height))
+    plt.xlabel('Points along great circle (need to update)')
     plt.savefig('plots/interpolated_xsect_test.png', dpi=300)
     plt.show()
-
 
 def load_and_process(reg_filename, orog_filename):
     w_cube = read_variable(reg_filename, 150, h)
@@ -150,54 +140,50 @@ def load_and_process(reg_filename, orog_filename):
 
     return w_cube, theta_cube, RH_cube, orog_cube
 
-def plot_xsect(w_xsect, theta_xsect, RH_xsect, max_height=5000):
-    w_con = iplt.contourf(w_xsect, cmap=cmap, norm=centred_cnorm(w_xsect.data))
-    theta_con = iplt.contour(theta_xsect, colors='k', linestyles='--')
-    RH_con = iplt.contour(RH_xsect, levels=[0.75], colors='0.5', linestyles='-.')
-
-    # iplt.plot(w_xsect.coord('fur'), orog_section, color='k')
-    orog = w_xsect.coord('surface_altitude').points
-    plt.fill_between(np.arange(len(orog)), orog, where=orog>0, color='k', interpolate=True)
-
-    plt.colorbar(w_con, label='Upward air velocity / m/s',
-                 # location='bottom',
-                 # orientation='vertical'
-                 )
-    plt.clabel(theta_con)
-
-    plt.ylabel('Altitude / m')
-    plt.ylim((0, max_height))
-    plt.xlabel('Points along great circle (need to update)')
-    plt.savefig('plots/interpolated_xsect_test.png', dpi=300)
-    plt.show()
-
 
 if __name__ == '__main__':
 
     indir = '/home/users/sw825517/Documents/ukv_data/'
     reg_file = indir + 'prodm_op_ukv_20150414_09_004.pp'
     orog_file = indir + 'prods_op_ukv_20150414_09_000.pp'
-
     h = 12
-
     map_bottomleft = (-9.6, 51.6)
     map_topright = (-8.9, 52.1)
     map_height = 750
-
     max_height = 5000
-
     gc_start = (-9.5, 51.8)
     gc_end = (-9, 52)
+    n = 200
     cmap = mpl_cm.get_cmap("brewer_PuOr_11")
 
     year, month, day, forecast_time = data_from_pp_filename(reg_file)
-
     w_cube, theta_cube, RH_cube, orog_cube = load_and_process(reg_file, orog_file)
-
-    gc = make_great_circle_points(gc_start, gc_end, n=200)
+    gc = make_great_circle_points(gc_start, gc_end, n=n)
 
     w_single_level = cube_at_single_level(w_cube, map_height, bottomleft=map_bottomleft, topright=map_topright)
     plot_xsect_map(w_single_level, great_circle=gc)
+
+    w_sliced, theta_sliced, RH_sliced = cube_slice(w_cube, theta_cube, RH_cube,
+                                                   bottom_left=map_bottomleft, top_right=map_topright,
+                                                   height=(0, max_height))
+    crs_latlon = ccrs.PlateCarree()
+    crs_rotated = w_cube.coord('grid_latitude').coord_system.as_cartopy_crs()
+    gc_model = np.array(
+        [convert_to_ukv_coords(coords[0], coords[1], crs_latlon, crs_rotated) for coords in gc.T])
+
+    traj = make_custom_traj(gc_model)
+    # TODO make function that accepts multiple cubes and interpolates them all and returns?
+    w_xsect = traj.interpolate(w_sliced, method='linear')
+    theta_xsect = traj.interpolate(theta_sliced, method='linear')
+    RH_xsect = traj.interpolate(RH_sliced, method='linear')
+
+    plot_xsect(w_xsect, theta_xsect, RH_xsect)
+
+
+    # TODO ask Sue for her oblique xsect code to compare
+
+    # this code below plots a crosssection along a latitude without interpolation
+    # can be used to check whether interpolation makes sense
 
     # xs_bottomleft = (-10.4, 51.9)
     # xs_topright = (-9.25, 51.9)
@@ -206,32 +192,3 @@ if __name__ == '__main__':
     # RH_section = cube_slice(RH_cube, xs_bottomleft, xs_topright, height=(0, max_height), force_latitude=True)
     # orog_section = cube_slice(orog_cube, xs_bottomleft, xs_topright, force_latitude=True)
     # plot_xsect_latitude(w_section, theta_section, RH_section, orog_section)
-
-    w_sliced = cube_slice(w_cube, map_bottomleft, map_topright, height=(0, max_height))
-    theta_sliced = cube_slice(theta_cube, map_bottomleft, map_topright, height=(0, max_height))
-    RH_sliced = cube_slice(RH_cube, map_bottomleft, map_topright, height=(0, max_height))
-    # w_xsect = great_circle_xsect(w_sliced, gc, n=200)
-    # theta_xsect = great_circle_xsect(theta_sliced, gc, n=200)
-    # RH_xsect = great_circle_xsect(RH_sliced, gc, n=200)
-    # orog_xsect = great_circle_xsect(w_sliced, gc_start=gc_start, gc_end=gc_end, n=200)
-    #
-    # plot_interpolated_xsect(w_xsect, theta_xsect, RH_xsect, w_sliced.coord('level_height').points,
-    #                         theta_sliced.coord('level_height').points, gc)
-
-    crs_latlon = ccrs.PlateCarree()
-    crs_rotated = w_cube.coord('grid_latitude').coord_system.as_cartopy_crs()
-    gc_model = np.array(
-        [convert_to_ukv_coords(coords[0], coords[1], crs_latlon, crs_rotated) for coords in gc.T])
-
-    traj = make_great_circle_traj(gc_model, 200)
-    # TODO check if more methods than linear are available
-    # TODO make function that accepts multiple cubes and interpolates them all and returns?
-    w_xsect = traj.interpolate(w_sliced, method='linear')
-    theta_xsect = traj.interpolate(theta_sliced, method='linear')
-    RH_xsect = traj.interpolate(RH_sliced, method='linear')
-
-
-    plot_xsect(w_xsect, theta_xsect, RH_xsect)
-
-
-    # TODO ask Sue for her oblique xsect code to compare
