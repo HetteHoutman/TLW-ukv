@@ -2,26 +2,10 @@ import cartopy.crs as ccrs
 import matplotlib.pyplot as plt
 
 import thermodynamics as th
-from iris_read import *
-from plot_profile_from_txt import plot_profile, N_squared, scorer_param
-
-# TODO put general functions in appropriate files
-def convert_to_ukv_coords(x, y, in_crs, out_crs):
-    """transforms coordinates given in crs in_crs to coordinates in crs out_crs.
-    works at least for UKV rotated pole."""
-    out_x, out_y = out_crs.transform_point(x, y, in_crs)
-    return out_x + 360, out_y
-
-def convert_list_to_ukv_coords(x_list, y_list, in_crs, out_crs):
-    return np.array([convert_to_ukv_coords(x, y, in_crs, out_crs) for x, y in zip(x_list, y_list)])
-
-def index_selector(desired_value, array):
-    """returns the index of the value in array that is closest to desired_value"""
-    return (np.abs(array - desired_value)).argmin()
-
-def uv_to_spddir(u, v):
-    """converts u and v wind fields to wind speed and direction. Taken from Peter Clark's code."""
-    return np.sqrt(u**2 + v**2),  np.arctan2(u, v)*180/np.pi+180
+from cube_processing import read_variable
+from met_functions import uv_to_spddir, N_squared, scorer_param
+from miscellaneous import convert_to_ukv_coords, index_selector
+from plot_profile_from_txt import plot_profile
 
 if __name__ == '__main__':
     # read file and load fields

@@ -1,8 +1,10 @@
 import sys
+
 import matplotlib.pyplot as plt
-import numpy as np
 import pandas as pd
-import thermodynamics_constants as tc
+
+from met_functions import N_squared, scorer_param
+
 
 def plot_profile(l2, height, N2U2, theta, wind, direction):
   fig, (ax, ax3) = plt.subplots(1,2, sharey=True)
@@ -27,18 +29,6 @@ def plot_profile(l2, height, N2U2, theta, wind, direction):
   return fig
 
 
-def N_squared(theta, height):
-  """calculates the brunt-vaisala frequency"""
-
-  dthetadz = np.gradient(theta, height)
-  N2 = tc.g / theta * dthetadz
-  return N2
-
-def scorer_param(N2, wind, height):
-  """calculates the scorer parameter"""
-  dudz = np.gradient(wind, height)
-  d2udz2 = np.gradient(dudz, height)
-  return N2 / wind ** 2 - d2udz2 / wind
 
 if __name__ == '__main__':
 

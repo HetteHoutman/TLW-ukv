@@ -1,3 +1,5 @@
+# this file contains some useful functions for processing cubes
+
 import time
 
 import cartopy.crs as ccrs
@@ -5,9 +7,93 @@ import iris
 import numpy as np
 from scipy.interpolate import griddata
 
-from miscellaneous import make_custom_traj
-from plot_profile_from_UKV import convert_to_ukv_coords
-from plot_xsect import get_coord_index
+from miscellaneous import make_custom_traj, convert_to_ukv_coords
+
+
+def read_variable(pp_file, code, hour_selected):
+    '''
+    Reads variable defined by stash code from pp_file. From P Clark
+
+    Args:
+        pp_file (str)
+        code (int)
+
+    Returns:
+        cubes (list)
+    '''
+    stash_code = iris_stash_code(code)
+    stash_const = iris.AttributeConstraint(STASH=stash_code)
+    cubes = iris.load(pp_file, stash_const)
+    print(f"Reading data from stash {code:d} at hour {hour_selected:d}")
+    hour_const = iris.Constraint(time=lambda cell:
+    cell.point.hour == hour_selected)
+    cube = cubes.extract(hour_const)[0]
+
+    return cube
+
+
+def iris_stash_code(code):
+    '''
+    Converts stash code to iris format. from P Clark
+
+    Args:
+        code : Stash code string of up to 5 digits
+
+    Returns:
+        stash code in iris format
+    '''
+    temp = f"{code:05d}"
+    iris_stash_code = 'm01s' + temp[0:2] + 'i' + temp[2:]
+    return iris_stash_code
+
+def get_coord_index(cube, name):
+    """from P Clarks code"""
+    for i, c in enumerate(cube.coords()):
+        if name in c.standard_name :
+            break
+    return i
+
+
+def add_grid_latlon_to_cube(cube, grid_latlon):
+    """from P Clarks code"""
+    ilat = get_coord_index(cube, 'grid_latitude')
+    ilon = get_coord_index(cube, 'grid_longitude')
+    cube.add_aux_coord(grid_latlon['lat_coord'], [ilat, ilon])
+    cube.add_aux_coord(grid_latlon['lon_coord'], [ilat, ilon])
+
+
+def get_grid_latlon_from_rotated(cube):
+    """from P Clarks code"""
+    # in the form of a cartopy map projection.
+    crs_rotated = cube.coord('grid_latitude').coord_system.as_cartopy_crs()
+
+    crs_sphere = ccrs.PlateCarree()
+
+    r_lats = cube.coord('grid_latitude').points.copy()
+    r_lons = cube.coord('grid_longitude').points.copy()
+
+    rot_lons, rot_lats = np.meshgrid(r_lons, r_lats)
+
+    true_lons = np.zeros_like(cube.data[0, :, :])
+    true_lats = np.zeros_like(cube.data[0, :, :])
+
+    for i, r_lon in enumerate(r_lons):
+        for j, r_lat in enumerate(r_lats):
+            true_lons[j, i], true_lats[j, i] = crs_sphere.transform_point(r_lon,
+                                                                          r_lat, crs_rotated)
+
+    true_lons[true_lons > 180] -= 360
+
+    grid_latlon = {'rot_lons': rot_lons,
+                   'rot_lats': rot_lats,
+                   'true_lons': true_lons,
+                   'true_lats': true_lats,
+                   'lon_coord': iris.coords.AuxCoord(points=true_lons,
+                                                     standard_name='longitude'),
+                   'lat_coord': iris.coords.AuxCoord(points=true_lats,
+                                                     standard_name='latitude')
+                   }
+    return grid_latlon
 
 
 def cube_at_single_level(cube, map_height, bottomleft=None, topright=None):
@@ -18,9 +104,9 @@ def cube_at_single_level(cube, map_height, bottomleft=None, topright=None):
     cube
     map_height
     bottomleft : tuple
-        lon/lat for the bottom left point of the map
+        (true) lon/lat for the bottom left point of the map
     topright : tuple
-        lon/lat for the top right point of the map
+        (true) lon/lat for the top right point of the map
     Returns
     -------
 
@@ -45,9 +131,9 @@ def cube_slice(*cubes, bottom_left=None, top_right=None, height=None, force_lati
     cubes : Cube
         the cube(s) to be sliced
     bottom_left : tuple
-        lon/lat of the bottom left corner
+        (true) lon/lat of the bottom left corner
     top_right : tuple
-        lon/lat of the top right corner
+        (true) lon/lat of the top right corner
     height : tuple
         range of heights between which to slice
     force_latitude : bool
@@ -108,7 +194,7 @@ def cube_from_array_and_cube(array, copy_cube, unit=None, std_name=None):
     Creates a new Cube by coping copy_cube and sticking in array as cube.data
     Parameters
     ----------
-    a : ndarray
+    array : ndarray
         data for new array
     copy_cube : Cube
         cube to be copied
@@ -140,7 +226,7 @@ def cube_custom_line_interpolate(custom_line, *cubes):
     Parameters
     ----------
     custom_line : ndarray
-        ndarray of shape (m, 2) in format lon/lat along which to interpolate the cube(s)
+        ndarray of shape (m, 2) in format (grid)lon/lat along which to interpolate the cube(s)
     cubes : Cube
         the cube(s) to interpolate
 

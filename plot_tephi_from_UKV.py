@@ -1,14 +1,11 @@
-import matplotlib.pyplot as plt
-import iris
-import iris.quickplot as qplt
-import numpy as np
-
-from iris_read import *
-from plot_crosssection import check_level_heights
-from plot_profile_from_UKV import index_selector, convert_to_ukv_coords, uv_to_spddir
 import cartopy.crs as ccrs
+import matplotlib.pyplot as plt
 import tephi
+
 import thermodynamics as th
+from cube_processing import check_level_heights, read_variable
+from met_functions import uv_to_spddir
+from miscellaneous import convert_to_ukv_coords, index_selector
 
 indir = '/home/users/sw825517/Documents/ukv_data/'
 filename = indir + 'prodm_op_ukv_20150414_09_004.pp'

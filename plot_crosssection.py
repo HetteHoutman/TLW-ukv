@@ -2,23 +2,22 @@ import cartopy.crs as ccrs
 import iris.plot as iplt
 import matplotlib.cm as mpl_cm
 import matplotlib.pyplot as plt
+import numpy as np
 
 import thermodynamics as th
 from cube_processing import cube_at_single_level, check_level_heights, cube_slice, cube_from_array_and_cube, \
-    add_orography, cube_custom_line_interpolate
+    add_orography, cube_custom_line_interpolate, read_variable, get_grid_latlon_from_rotated, add_grid_latlon_to_cube
 from general_plotting_fns import centred_cnorm
-from iris_read import *
-from miscellaneous import make_great_circle_points, make_custom_traj
-from plot_profile_from_UKV import convert_to_ukv_coords, convert_list_to_ukv_coords
-from plot_xsect import get_grid_latlon_from_rotated, add_grid_latlon_to_cube
+from miscellaneous import make_great_circle_points, convert_list_to_ukv_coords
 from pp_processing import data_from_pp_filename
 from sonde_locs import sonde_locs
-from thermodynamics import potential_temperature
 
 
 def plot_xsect_latitude(w_section, theta_section, RH_section, orog_section, max_height=5000, cmap=mpl_cm.get_cmap("brewer_PuOr_11"),
                coords=None):
-    """plots the latitudinal cross-section with filled contours of w and normal contours of theta and RH"""
+    """
+    Not used currently!
+    plots the latitudinal cross-section with filled contours of w and normal contours of theta and RH"""
     if coords is None:
         coords = ['longitude', 'altitude']
 
@@ -93,6 +92,25 @@ def plot_xsect_map(cube_single_level, great_circle=None, cmap=mpl_cm.get_cmap("b
 
 
 def plot_xsect(w_xsect, theta_xsect, RH_xsect, max_height=5000, cmap=mpl_cm.get_cmap("brewer_PuOr_11")):
+    """
+    Plots the cross section of the w, theta and RH fields.
+    Parameters
+    ----------
+    w_xsect : Cube
+        Cube containing the w field interpolated along line using trajectory method
+    theta_xsect : Cube
+        Cube containing the theta field interpolated along line using trajectory method
+    RH_xsect : Cube
+        Cube containing the RH field interpolated along line using trajectory method
+    max_height : float or int
+        altitude(!) at which to cut off plot
+    cmap : colormap
+        colormap for the plot
+
+    Returns
+    -------
+
+    """
     w_con = iplt.contourf(w_xsect, cmap=cmap, norm=centred_cnorm(w_xsect.data))
     theta_con = iplt.contour(theta_xsect, colors='k', linestyles='--')
     RH_con = iplt.contour(RH_xsect, levels=[0.75], colors='0.5', linestyles='-.')
@@ -130,7 +148,7 @@ def load_and_process(reg_filename, orog_filename):
     add_grid_latlon_to_cube(orog_cube, grid_latlon)
 
     # create theta and RH cubes
-    theta_cube = cube_from_array_and_cube(potential_temperature(t_cube.data, p_cube.data), p_cube, unit='K',
+    theta_cube = cube_from_array_and_cube(th.potential_temperature(t_cube.data, p_cube.data), p_cube, unit='K',
                                           std_name='air_potential_temperature')
     RH_cube = cube_from_array_and_cube(th.q_p_to_e(q_cube.data, p_cube.data) / th.esat(t_cube.data), p_cube, unit='1',
                                        std_name='relative_humidity')
@@ -143,6 +161,7 @@ def load_and_process(reg_filename, orog_filename):
 
 if __name__ == '__main__':
 
+    # settings
     indir = '/home/users/sw825517/Documents/ukv_data/'
     reg_file = indir + 'prodm_op_ukv_20150414_09_004.pp'
     orog_file = indir + 'prods_op_ukv_20150414_09_000.pp'

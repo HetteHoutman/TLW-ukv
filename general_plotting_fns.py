@@ -1,4 +1,7 @@
+# this file contains some useful general plotting functions
 import matplotlib.colors as colors
+import numpy as np
+
 
 def centred_cnorm(data):
     """
@@ -12,7 +15,7 @@ def centred_cnorm(data):
     -------
     colors.Normalize
     """
-    data_min = data.min()
-    data_max = data.max()
+    data_min = np.nanmin(data)
+    data_max = np.nanmax(data)
     range_max = max(abs(data_max), abs(data_min))
     return colors.Normalize(vmin=-range_max, vmax=range_max)
