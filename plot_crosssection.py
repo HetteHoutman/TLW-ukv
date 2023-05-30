@@ -46,7 +46,8 @@ def plot_xsect_latitude(w_section, theta_section, RH_section, orog_section, max_
     plt.show()
 
 
-def plot_xsect_map(cube_single_level, great_circle=None, cmap=mpl_cm.get_cmap("brewer_PuOr_11"), custom_save=''):
+def plot_xsect_map(cube_single_level, great_circle=None, cmap=mpl_cm.get_cmap("brewer_PuOr_11"), custom_save='',
+                   whitespace=True):
     """
     Plots the map indicating the cross-section, in addition to the w field.
     Parameters
@@ -61,6 +62,9 @@ def plot_xsect_map(cube_single_level, great_circle=None, cmap=mpl_cm.get_cmap("b
         lon/lat of the start of the great circle cross-section line to be plotted, or None if no line is to be plotted
     custom_save : str
         optional addition to the save file name to distinguish it from others
+    whitespace : bool
+        if False, sets ylim and xlim such that the whitespace caused by reprojection from ukv grid is not shown.
+        this cuts off some of the data from the plot, too
     """
 
     fig, ax = plt.subplots(1, 1, subplot_kw={'projection': crs_latlon})
@@ -81,6 +85,13 @@ def plot_xsect_map(cube_single_level, great_circle=None, cmap=mpl_cm.get_cmap("b
                  location='bottom',
                  # orientation='vertical'
                  )
+
+    if not whitespace:
+        lats = cube_single_level.coord('latitude').points
+        lons = cube_single_level.coord('longitude').points
+        plt.xlim(lons[0,0], lons[-1,-1])
+        plt.ylim(lats[0,-1], lats[-1,0])
+
     plt.title(f'UKV {cube_single_level.coord("level_height").points[0]:.0f} '
               f'm {year}/{month}/{day} at {h}h ({forecast_time})')
 
@@ -160,7 +171,7 @@ def load_and_process(reg_filename, orog_filename):
 
 def add_dist_coord(dists, *cubes):
     """
-    adds dists as an AuxCoord to cube(s)
+    adds great circle distance as an AuxCoord to cube(s)
     Parameters
     ----------
     dists
@@ -184,10 +195,12 @@ if __name__ == '__main__':
     reg_file = indir + 'prodm_op_ukv_20150414_09_004.pp'
     orog_file = indir + 'prods_op_ukv_20150414_09_000.pp'
     h = 12
-    map_bottomleft = (-9.6, 51.6)
+    map_bottomleft = (-10.35, 51.5)
     map_topright = (-8.9, 52.1)
     map_height = 750
     max_height = 5000
+    interp_bottomleft = (-9.6, 51.6)
+    interp_topright = (-8.9, 52.1)
     gc_start = (-9.5, 51.8)
     gc_end = (-9, 52)
     n = 200
@@ -210,7 +223,7 @@ if __name__ == '__main__':
     plot_xsect_map(w_single_level, great_circle=gc)
 
     # make cross-sections and plot them
-    cubes_sliced = cube_slice(*cubes, bottom_left=map_bottomleft, top_right=map_topright, height=(0, max_height))
+    cubes_sliced = cube_slice(*cubes, bottom_left=interp_bottomleft, top_right=interp_topright, height=(0, max_height))
     cubes_xsect = cube_custom_line_interpolate(gc_model, *cubes_sliced)
     cubes_xsect = add_dist_coord(dists, *cubes_xsect)
 
