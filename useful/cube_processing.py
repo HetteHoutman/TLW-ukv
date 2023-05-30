@@ -111,15 +111,17 @@ def cube_at_single_level(cube, map_height, bottomleft=None, topright=None):
     -------
 
     """
-    crs_latlon = ccrs.PlateCarree()
-    crs_rotated = cube.coord('grid_latitude').coord_system.as_cartopy_crs()
+    if bottomleft is not None and topright is not None:
+        crs_latlon = ccrs.PlateCarree()
+        crs_rotated = cube.coord('grid_latitude').coord_system.as_cartopy_crs()
+        bl_model = crs_rotated.transform_point(bottomleft[0], bottomleft[1], crs_latlon)
+        tr_model = crs_rotated.transform_point(topright[0], topright[1], crs_latlon)
+        cube = cube.intersection(grid_latitude=(bl_model[1], tr_model[1]),
+                                 grid_longitude=(bl_model[0], tr_model[0]))
 
-    bl_model = crs_rotated.transform_point(bottomleft[0], bottomleft[1], crs_latlon)
-    tr_model = crs_rotated.transform_point(topright[0], topright[1], crs_latlon)
     # TODO change level_height to altitude
     height_index = cube.coord('level_height').nearest_neighbour_index(map_height)
-    single_level = cube[height_index].intersection(grid_latitude=(bl_model[1], tr_model[1]),
-                                                   grid_longitude=(bl_model[0], tr_model[0]))
+    single_level = cube[height_index]
     return single_level
 
 def cube_slice(*cubes, bottom_left=None, top_right=None, height=None, force_latitude=False):
