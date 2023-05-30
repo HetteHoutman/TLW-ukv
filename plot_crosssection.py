@@ -54,12 +54,10 @@ def plot_xsect_map(cube_single_level, great_circle=None, cmap=mpl_cm.get_cmap("b
     ----------
     cube_single_level : Cube
         the single level cube to be plotted (can only have height coordinate as aux coord)
+    great_circle : ndarray
+        of shape (2, n). lon/lat pairs of points on great circle
     cmap :
         colors
-    end : tuple
-        lon/lat of the end of the great circle cross-section line to be plotted, or None if no line is to be plotted
-    start : tuple
-        lon/lat of the start of the great circle cross-section line to be plotted, or None if no line is to be plotted
     custom_save : str
         optional addition to the save file name to distinguish it from others
     whitespace : bool
