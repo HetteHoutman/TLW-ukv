@@ -89,6 +89,8 @@ def plot_xsect(w_xsect, theta_xsect, RH_xsect, max_height=5000, cmap="brewer_PuO
 
     """
     coords = ['distance_from_start', 'altitude']
+    # TODO plot distance in km not m
+    # TODO use stippling for RH
     w_con = iplt.contourf(w_xsect, cmap=mpl_cm.get_cmap(cmap), norm=centred_cnorm(w_xsect.data), coords=coords)
     theta_con = iplt.contour(theta_xsect, colors='k', linestyles='--', coords=coords)
     RH_con = iplt.contour(RH_xsect, levels=[0.75], colors='0.5', linestyles='-.', coords=coords)
