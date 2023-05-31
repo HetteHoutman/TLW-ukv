@@ -145,7 +145,7 @@ def load_and_process(reg_filename, orog_filename):
     t_cube = read_variable(reg_filename, 16004, h)
     p_cube = read_variable(reg_filename, 408, h)
     q_cube = read_variable(reg_filename, 10, h)
-    orog_cube = read_variable(orog_filename, 33, 9)
+    orog_cube = read_variable(orog_filename, 33, orog_h)
 
     # check level heights
     q_cube = check_level_heights(q_cube, t_cube)
@@ -172,9 +172,10 @@ if __name__ == '__main__':
 
     # settings
     indir = '/home/users/sw825517/Documents/ukv_data/'
-    reg_file = indir + 'prodm_op_ukv_20150414_09_004.pp'
-    orog_file = indir + 'prods_op_ukv_20150414_09_000.pp'
+    reg_file = indir + 'prodm_op_ukv_20230419_12_000.pp'
+    orog_file = indir + 'prods_op_ukv_20230419_12_000.pp'
     h = 12
+    orog_h = 12
     map_bottomleft = (-10.35, 51.5)
     map_topright = (-8.9, 52.1)
     map_height = 750
@@ -203,11 +204,11 @@ if __name__ == '__main__':
     plot_xsect_map(w_single_level, great_circle=gc, whitespace=True)
 
     # make cross-sections and plot them
-    cubes_sliced = cube_slice(*cubes, bottom_left=interp_bottomleft, top_right=interp_topright, height=(0, max_height))
-    cubes_xsect = cube_custom_line_interpolate(gc_model, *cubes_sliced)
-    cubes_xsect = add_dist_coord(dists, *cubes_xsect)
-
-    plot_xsect(*cubes_xsect, max_height=max_height)
+    # cubes_sliced = cube_slice(*cubes, bottom_left=interp_bottomleft, top_right=interp_topright, height=(0, max_height))
+    # cubes_xsect = cube_custom_line_interpolate(gc_model, *cubes_sliced)
+    # cubes_xsect = add_dist_coord(dists, *cubes_xsect)
+    #
+    # plot_xsect(*cubes_xsect, max_height=max_height)
 
 
     # this code below plots a crosssection along a latitude without interpolation
