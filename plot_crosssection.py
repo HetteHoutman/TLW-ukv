@@ -1,7 +1,10 @@
-import iris.coords
+import sys
+from types import SimpleNamespace
+
 import iris.plot as iplt
 import matplotlib.cm as mpl_cm
 import matplotlib.pyplot as plt
+import json
 
 from sonde_locs import sonde_locs
 from useful import thermodynamics as th
@@ -42,11 +45,11 @@ def plot_xsect_latitude(w_section, theta_section, RH_section, orog_section, max_
     plt.colorbar(w_con, label='Upward air velocity / m/s')
 
     plt.tight_layout()
-    plt.savefig(f'plots/xsect_lat{lat:.3f}_{year}{month}{day}_{h}.png', dpi=300)
+    plt.savefig(f'plots/xsect_lat{lat:.3f}_{year}{month}{day}_{s.h}.png', dpi=300)
     plt.show()
 
 
-def plot_xsect_map(cube_single_level, great_circle=None, cmap=mpl_cm.get_cmap("brewer_PuOr_11"), custom_save='',
+def plot_xsect_map(cube_single_level, great_circle=None, cmap="brewer_PuOr_11", custom_save='',
                    whitespace=True):
     """
     Plots the map indicating the cross-section, in addition to the w field.
@@ -69,7 +72,7 @@ def plot_xsect_map(cube_single_level, great_circle=None, cmap=mpl_cm.get_cmap("b
     ax.coastlines()
 
     w_con = iplt.contourf(cube_single_level, coords=['longitude', 'latitude'],
-                          cmap=cmap, norm=centred_cnorm(cube_single_level.data))
+                          cmap=mpl_cm.get_cmap(cmap), norm=centred_cnorm(cube_single_level.data))
 
     if great_circle is not None:
         ax.plot(great_circle[0], great_circle[1], color='k', zorder=50)
@@ -91,14 +94,14 @@ def plot_xsect_map(cube_single_level, great_circle=None, cmap=mpl_cm.get_cmap("b
         plt.ylim(lats[0,-1], lats[-1,0])
 
     plt.title(f'UKV {cube_single_level.coord("level_height").points[0]:.0f} '
-              f'm {year}/{month}/{day} at {h}h ({forecast_time})')
+              f'm {year}/{month}/{day} at {s.h}h ({forecast_time})')
 
     plt.tight_layout()
-    plt.savefig(f'plots/xsect_map{custom_save}_{year}{month}{day}_{h}.png', dpi=300)
+    plt.savefig(f'plots/xsect_map{custom_save}_{year}{month}{day}_{s.h}.png', dpi=300)
     plt.show()
 
 
-def plot_xsect(w_xsect, theta_xsect, RH_xsect, max_height=5000, cmap=mpl_cm.get_cmap("brewer_PuOr_11")):
+def plot_xsect(w_xsect, theta_xsect, RH_xsect, max_height=5000, cmap="brewer_PuOr_11"):
     """
     Plots the cross section of the w, theta and RH fields.
     Parameters
@@ -119,7 +122,7 @@ def plot_xsect(w_xsect, theta_xsect, RH_xsect, max_height=5000, cmap=mpl_cm.get_
 
     """
     coords = ['distance_from_start', 'altitude']
-    w_con = iplt.contourf(w_xsect, cmap=cmap, norm=centred_cnorm(w_xsect.data), coords=coords)
+    w_con = iplt.contourf(w_xsect, cmap=mpl_cm.get_cmap(cmap), norm=centred_cnorm(w_xsect.data), coords=coords)
     theta_con = iplt.contour(theta_xsect, colors='k', linestyles='--', coords=coords)
     RH_con = iplt.contour(RH_xsect, levels=[0.75], colors='0.5', linestyles='-.', coords=coords)
 
@@ -141,11 +144,11 @@ def plot_xsect(w_xsect, theta_xsect, RH_xsect, max_height=5000, cmap=mpl_cm.get_
     plt.show()
 
 def load_and_process(reg_filename, orog_filename):
-    w_cube = read_variable(reg_filename, 150, h)
-    t_cube = read_variable(reg_filename, 16004, h)
-    p_cube = read_variable(reg_filename, 408, h)
-    q_cube = read_variable(reg_filename, 10, h)
-    orog_cube = read_variable(orog_filename, 33, orog_h)
+    w_cube = read_variable(reg_filename, 150, s.h)
+    t_cube = read_variable(reg_filename, 16004, s.h)
+    p_cube = read_variable(reg_filename, 408, s.h)
+    q_cube = read_variable(reg_filename, 10, s.h)
+    orog_cube = read_variable(orog_filename, 33, s.orog_h)
 
     # check level heights
     q_cube = check_level_heights(q_cube, t_cube)
@@ -170,46 +173,36 @@ def load_and_process(reg_filename, orog_filename):
 
 if __name__ == '__main__':
 
-    # settings
-    # TODO read these from file so that they are easily accesible and saved
-    indir = '/home/users/sw825517/Documents/ukv_data/'
-    reg_file = indir + 'prodm_op_ukv_20230419_12_000.pp'
-    orog_file = indir + 'prods_op_ukv_20230419_12_000.pp'
-    h = 12
-    orog_h = 12
-    map_bottomleft = (-10.35, 51.5)
-    map_topright = (-8.9, 52.1)
-    map_height = 750
-    max_height = 5000
-    interp_bottomleft = (-9.6, 51.6)
-    interp_topright = (-8.9, 52.1)
-    gc_start = (-9.5, 51.8)
-    gc_end = (-9, 52)
-    n = 200
-    cmap = mpl_cm.get_cmap("brewer_PuOr_11")
+    # load settings
+    if len(sys.argv) != 2:
+        raise Exception(f'Gave {len(sys.argv) - 1} arguments but this file only takes 1 (settings.json)')
 
-    # load
-    year, month, day, forecast_time = data_from_pp_filename(reg_file)
-    cubes = load_and_process(reg_file, orog_file)
+    file = sys.argv[1]
+    with open(file) as f:
+        s = json.load(f, object_hook=lambda d: SimpleNamespace(**d))
+
+    # load cubes
+    year, month, day, forecast_time = data_from_pp_filename(s.reg_file)
+    cubes = load_and_process(s.reg_file, s.orog_file)
 
     # define coordinate systems
     crs_latlon = ccrs.PlateCarree()
     crs_rotated = cubes[0].coord('grid_latitude').coord_system.as_cartopy_crs()
 
     # make great circle for interpolation
-    gc, dists = make_great_circle_points(gc_start, gc_end, n=n)
+    gc, dists = make_great_circle_points(s.gc_start, s.gc_end, n=s.n)
     gc_model = convert_list_to_ukv_coords(gc[0], gc[1], crs_latlon, crs_rotated)
 
     # plot map for clarity
-    w_single_level = cube_at_single_level(cubes[0], map_height, bottomleft=map_bottomleft, topright=map_topright)
+    w_single_level = cube_at_single_level(cubes[0], s.map_height, bottomleft=s.map_bottomleft, topright=s.map_topright)
     plot_xsect_map(w_single_level, great_circle=gc, whitespace=True)
 
     # make cross-sections and plot them
-    # cubes_sliced = cube_slice(*cubes, bottom_left=interp_bottomleft, top_right=interp_topright, height=(0, max_height))
-    # cubes_xsect = cube_custom_line_interpolate(gc_model, *cubes_sliced)
-    # cubes_xsect = add_dist_coord(dists, *cubes_xsect)
-    #
-    # plot_xsect(*cubes_xsect, max_height=max_height)
+    cubes_sliced = cube_slice(*cubes, bottom_left=s.interp_bottomleft, top_right=s.interp_topright, height=(0, s.max_height))
+    cubes_xsect = cube_custom_line_interpolate(gc_model, *cubes_sliced)
+    cubes_xsect = add_dist_coord(dists, *cubes_xsect)
+
+    plot_xsect(*cubes_xsect, max_height=s.max_height)
 
 
     # this code below plots a crosssection along a latitude without interpolation

@@ -1,0 +1,15 @@
+{"reg_file" : "/home/users/sw825517/Documents/ukv_data/prodm_op_ukv_20150414_09_004.pp",
+  "orog_file" : "/home/users/sw825517/Documents/ukv_data/prods_op_ukv_20150414_09_000.pp",
+  "h" : 12,
+  "orog_h" : 9,
+  "map_bottomleft" : [-10.35, 51.5],
+  "map_topright" : [-8.9, 52.1],
+  "map_height" : 750,
+  "max_height" : 5000,
+  "interp_bottomleft" : [-9.6, 51.6],
+  "interp_topright" : [-8.9, 52.1],
+  "gc_start" : [-9.5, 51.8],
+  "gc_end" : [-9, 52],
+  "n" : 200,
+  "cmap" : "brewer_PuOr_11"
+}
