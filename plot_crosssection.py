@@ -218,7 +218,7 @@ if __name__ == '__main__':
 
     # plot map for clarity
     w_single_level = cube_at_single_level(cubes[0], map_height, bottomleft=map_bottomleft, topright=map_topright)
-    plot_xsect_map(w_single_level, great_circle=gc)
+    plot_xsect_map(w_single_level, great_circle=gc, whitespace=True)
 
     # make cross-sections and plot them
     cubes_sliced = cube_slice(*cubes, bottom_left=interp_bottomleft, top_right=interp_topright, height=(0, max_height))
