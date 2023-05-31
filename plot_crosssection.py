@@ -15,39 +15,6 @@ from useful.pp_processing import data_from_pp_filename
 
 
 # keep in mind that  the functions here might use global variables specific to this file
-def plot_xsect_latitude(w_section, theta_section, RH_section, orog_section, max_height=5000, cmap=mpl_cm.get_cmap("brewer_PuOr_11"),
-               coords=None):
-    """
-    Not used currently!
-    plots the latitudinal cross-section with filled contours of w and normal contours of theta and RH"""
-    if coords is None:
-        coords = ['longitude', 'altitude']
-
-    plt.figure()
-
-    w_con = iplt.contourf(w_section, coords=coords,
-                          cmap=cmap, norm=centred_cnorm(w_section.data))
-    theta_con = iplt.contour(theta_section, levels=5, coords=coords,
-                             colors='k', linestyles='--')
-    RH_con = iplt.contour(RH_section, levels=[0.75], coords=coords,
-                          colors='0.5', linestyles='-.')
-
-    iplt.plot(orog_section.coord('longitude'), orog_section, color='k')
-    plt.fill_between(orog_section.coord('longitude').points, orog_section.data, where=orog_section.data>0, color='k',
-                     interpolate=True)
-
-    lat = w_section.coord('latitude').points[0]
-    plt.ylim((0,max_height))
-    plt.clabel(theta_con)
-    plt.xlabel(f'{w_section.coord(coords[0]).name().capitalize()} / deg')
-    plt.ylabel(f'{w_section.coord(coords[1]).name().capitalize()} / {str(w_section.coord(coords[1]).units)}')
-    plt.title(f'Cross-section approximately along lat {lat} deg')
-    plt.colorbar(w_con, label='Upward air velocity / m/s')
-
-    plt.tight_layout()
-    plt.savefig(f'plots/xsect_lat{lat:.3f}_{year}{month}{day}_{s.h}.png', dpi=300)
-    plt.show()
-
 
 def plot_xsect_map(cube_single_level, great_circle=None, cmap="brewer_PuOr_11", custom_save='',
                    whitespace=True):
@@ -203,15 +170,3 @@ if __name__ == '__main__':
     cubes_xsect = add_dist_coord(dists, *cubes_xsect)
 
     plot_xsect(*cubes_xsect, max_height=s.max_height)
-
-
-    # this code below plots a crosssection along a latitude without interpolation
-    # can be used to check whether interpolation makes sense
-
-    # xs_bottomleft = (-10.4, 51.9)
-    # xs_topright = (-9.25, 51.9)
-    # w_section = cube_slice(w_cube, xs_bottomleft, xs_topright, height=(0, max_height), force_latitude=True)
-    # theta_section = cube_slice(theta_cube, xs_bottomleft, xs_topright, height=(0, max_height), force_latitude=True)
-    # RH_section = cube_slice(RH_cube, xs_bottomleft, xs_topright, height=(0, max_height), force_latitude=True)
-    # orog_section = cube_slice(orog_cube, xs_bottomleft, xs_topright, force_latitude=True)
-    # plot_xsect_latitude(w_section, theta_section, RH_section, orog_section)
