@@ -175,7 +175,7 @@ if __name__ == '__main__':
 
     # load settings
     if len(sys.argv) != 2:
-        raise Exception(f'Gave {len(sys.argv) - 1} arguments but this file only takes 1 (settings.json)')
+        raise Exception(f'Gave {len(sys.argv) - 1} arguments but this file takes exactly 1 (settings.json)')
 
     file = sys.argv[1]
     with open(file) as f:
