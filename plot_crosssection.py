@@ -167,24 +167,6 @@ def load_and_process(reg_filename, orog_filename):
 
     return w_cube, theta_cube, RH_cube
 
-def add_dist_coord(dists, *cubes):
-    """
-    adds great circle distance as an AuxCoord to cube(s)
-    Parameters
-    ----------
-    dists
-    cubes
-
-    Returns
-    -------
-
-    """
-    dist_coord = iris.coords.AuxCoord(dists, long_name='distance_from_start', units='m')
-    for cube in cubes:
-        cube.add_aux_coord(dist_coord, data_dims=1)
-    return cubes
-
-
 
 if __name__ == '__main__':
 

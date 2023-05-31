@@ -289,6 +289,24 @@ def great_circle_xsect(cube, great_circle, n=50):
 
     return xsect
 
+def add_dist_coord(dists, *cubes):
+    """
+    adds great circle distance as an AuxCoord to cross-section cube(s)
+    Parameters
+    ----------
+    dists : ndarray
+        1d array containing the distances along the great circle corresponding to each index of the cross-section
+    cubes
+
+    Returns
+    -------
+
+    """
+    dist_coord = iris.coords.AuxCoord(dists, long_name='distance_from_start', units='m')
+    for cube in cubes:
+        cube.add_aux_coord(dist_coord, data_dims=1)
+    return cubes
+
 def add_orography(orography_cube, *cubes):
     orog_coord = iris.coords.AuxCoord(orography_cube.data, standard_name=str(orography_cube.standard_name),
                                       long_name='orography', var_name='orog', units=orography_cube.units)
