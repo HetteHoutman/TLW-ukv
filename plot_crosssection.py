@@ -171,6 +171,7 @@ def load_and_process(reg_filename, orog_filename):
 if __name__ == '__main__':
 
     # settings
+    # TODO read these from file so that they are easily accesible and saved
     indir = '/home/users/sw825517/Documents/ukv_data/'
     reg_file = indir + 'prodm_op_ukv_20230419_12_000.pp'
     orog_file = indir + 'prods_op_ukv_20230419_12_000.pp'
