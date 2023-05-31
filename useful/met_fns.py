@@ -1,6 +1,6 @@
 # this file contains some useful functions for meteorological calculations
 import numpy as np
-import thermodynamics_constants as tc
+import useful.thermodynamics_constants as tc
 
 def uv_to_spddir(u, v):
     """

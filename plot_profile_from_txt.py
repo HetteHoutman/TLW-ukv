@@ -21,6 +21,8 @@ def plot_profile(l2, height, N2U2, theta, wind, direction):
   labels = [l.get_label() for l in lines]
   ax.legend(lines, labels, loc='best')
 
+  ax2.set_xlim((-1e-5, 1e-5))
+
   ax.set_xlabel('Potential temperature (K)')
   ax.set_ylabel('Altitude (m)')
   ax2.set_xlabel('l^2 (m^-2)')
@@ -56,7 +58,7 @@ if __name__ == '__main__':
   N2 = N_squared(theta, height)
 
   # include wind gradient in l squared
-  # should really be the wind perpendicular to wavenumber vector, not implemented yet
+  # TODO should really be the wind perpendicular to wavenumber vector, not implemented yet
   N2U2 = N2 / data.SMPS.values ** 2
 
   l2 = scorer_param(N2, wind, height)

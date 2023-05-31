@@ -1,5 +1,6 @@
 import cartopy.crs as ccrs
 import matplotlib.pyplot as plt
+import numpy as np
 
 from useful import thermodynamics as th
 from useful.cube_processing import read_variable
