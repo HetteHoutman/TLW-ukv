@@ -67,7 +67,7 @@ def plot_xsect_map(cube_single_level, great_circle=None, cmap="brewer_PuOr_11", 
     plt.savefig(f'plots/xsect_map{custom_save}_{year}{month}{day}_{s.h}.png', dpi=300)
     plt.show()
 
-def plot_xsect(w_xsect, theta_xsect, RH_xsect, max_height=5000, cmap="brewer_PuOr_11", custom_save=''):
+def plot_xsect(w_xsect, theta_xsect, RH_xsect, max_height=5000, cmap="brewer_PuOr_11", custom_save='', RH_level=0.75):
     """
     Plots the cross section of the w, theta and RH fields.
     Parameters
@@ -84,16 +84,17 @@ def plot_xsect(w_xsect, theta_xsect, RH_xsect, max_height=5000, cmap="brewer_PuO
         colormap for the plot
     custom_save : str
         optional addition to the save file name to distinguish it from others
+    RH_level : float
+        relative humidity above which to hatch
 
     Returns
     -------
 
     """
     coords = ['distance_from_start', 'altitude']
-    # TODO use stippling for RH
     w_con = iplt.contourf(w_xsect, cmap=mpl_cm.get_cmap(cmap), norm=centred_cnorm(w_xsect.data), coords=coords)
     theta_con = iplt.contour(theta_xsect, colors='k', linestyles='--', coords=coords)
-    RH_con = iplt.contour(RH_xsect, levels=[0.75], colors='0.5', linestyles='-.', coords=coords)
+    RH_con = iplt.contourf(RH_xsect, levels=[0.75, 1], colors='none', linestyles='none', coords=coords, hatches=['..'])
 
     orog = w_xsect.coord('surface_altitude').points
     x = w_xsect.coord('distance_from_start').points
