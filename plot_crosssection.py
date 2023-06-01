@@ -67,7 +67,6 @@ def plot_xsect_map(cube_single_level, great_circle=None, cmap="brewer_PuOr_11", 
     plt.savefig(f'plots/xsect_map{custom_save}_{year}{month}{day}_{s.h}.png', dpi=300)
     plt.show()
 
-
 def plot_xsect(w_xsect, theta_xsect, RH_xsect, max_height=5000, cmap="brewer_PuOr_11"):
     """
     Plots the cross section of the w, theta and RH fields.
@@ -138,7 +137,6 @@ def load_and_process(reg_filename, orog_filename):
     w_cube, theta_cube, RH_cube = add_orography(orog_cube, w_cube, theta_cube, RH_cube)
 
     return w_cube, theta_cube, RH_cube
-
 
 def load_settings():
     if len(sys.argv) != 2:
