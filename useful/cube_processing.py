@@ -291,18 +291,18 @@ def great_circle_xsect(cube, great_circle, n=50):
 
 def add_dist_coord(dists, *cubes):
     """
-    adds great circle distance as an AuxCoord to cross-section cube(s)
+    adds great circle distance (in km) as an AuxCoord to cross-section cube(s)
     Parameters
     ----------
     dists : ndarray
-        1d array containing the distances along the great circle corresponding to each index of the cross-section
+        1d array containing the distances in (m) along the great circle corresponding to each index of the cross-section
     cubes
 
     Returns
     -------
 
     """
-    dist_coord = iris.coords.AuxCoord(dists, long_name='distance_from_start', units='m')
+    dist_coord = iris.coords.AuxCoord(dists / 1000, long_name='distance_from_start', units='km')
     for cube in cubes:
         cube.add_aux_coord(dist_coord, data_dims=1)
     return cubes
