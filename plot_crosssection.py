@@ -140,15 +140,19 @@ def load_and_process(reg_filename, orog_filename):
     return w_cube, theta_cube, RH_cube
 
 
+def load_settings():
+    if len(sys.argv) != 2:
+        raise Exception(f'Gave {len(sys.argv) - 1} arguments but this file takes exactly 1 (settings.json)')
+    file = sys.argv[1]
+    with open(file) as f:
+        settings = json.load(f, object_hook=lambda d: SimpleNamespace(**d))
+
+    return settings
+
 if __name__ == '__main__':
 
     # load settings
-    if len(sys.argv) != 2:
-        raise Exception(f'Gave {len(sys.argv) - 1} arguments but this file takes exactly 1 (settings.json)')
-
-    file = sys.argv[1]
-    with open(file) as f:
-        s = json.load(f, object_hook=lambda d: SimpleNamespace(**d))
+    s = load_settings()
 
     # load cubes
     year, month, day, forecast_time = data_from_pp_filename(s.reg_file)
