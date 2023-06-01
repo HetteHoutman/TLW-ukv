@@ -67,7 +67,7 @@ def plot_xsect_map(cube_single_level, great_circle=None, cmap="brewer_PuOr_11", 
     plt.savefig(f'plots/xsect_map{custom_save}_{year}{month}{day}_{s.h}.png', dpi=300)
     plt.show()
 
-def plot_xsect(w_xsect, theta_xsect, RH_xsect, max_height=5000, cmap="brewer_PuOr_11"):
+def plot_xsect(w_xsect, theta_xsect, RH_xsect, max_height=5000, cmap="brewer_PuOr_11", custom_save=''):
     """
     Plots the cross section of the w, theta and RH fields.
     Parameters
@@ -82,13 +82,14 @@ def plot_xsect(w_xsect, theta_xsect, RH_xsect, max_height=5000, cmap="brewer_PuO
         altitude(!) at which to cut off plot
     cmap : colormap
         colormap for the plot
+    custom_save : str
+        optional addition to the save file name to distinguish it from others
 
     Returns
     -------
 
     """
     coords = ['distance_from_start', 'altitude']
-    # TODO plot distance in km not m
     # TODO use stippling for RH
     w_con = iplt.contourf(w_xsect, cmap=mpl_cm.get_cmap(cmap), norm=centred_cnorm(w_xsect.data), coords=coords)
     theta_con = iplt.contour(theta_xsect, colors='k', linestyles='--', coords=coords)
@@ -106,9 +107,8 @@ def plot_xsect(w_xsect, theta_xsect, RH_xsect, max_height=5000, cmap="brewer_PuO
 
     plt.ylabel('Altitude / m')
     plt.ylim((0, max_height))
-    plt.xlabel('Distance along great circle / m')
-    # TODO save to proper name
-    plt.savefig('plots/interpolated_xsect_test.png', dpi=300)
+    plt.xlabel(f'Distance along great circle / {w_xsect.coord(coords[0]).units}')
+    plt.savefig(f'plots/xsect{custom_save}_{year}{month}{day}_{s.h}.png', dpi=300)
     plt.show()
 
 def load_and_process(reg_filename, orog_filename):
