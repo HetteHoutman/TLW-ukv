@@ -2,10 +2,10 @@ import cartopy.crs as ccrs
 import matplotlib.pyplot as plt
 import tephi
 
-from useful import thermodynamics as th
-from useful.cube_processing import check_level_heights, read_variable
-from useful.met_fns import uv_to_spddir
-from useful.miscellaneous import convert_to_ukv_coords, index_selector
+import thermodynamics as th
+from cube_processing import check_level_heights, read_variable
+from met_fns import uv_to_spddir
+from miscellaneous import convert_to_ukv_coords, index_selector
 
 indir = '/home/users/sw825517/Documents/ukv_data/'
 filename = indir + 'prodm_op_ukv_20150414_09_004.pp'

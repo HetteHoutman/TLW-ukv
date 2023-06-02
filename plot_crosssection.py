@@ -7,11 +7,11 @@ import matplotlib.pyplot as plt
 import json
 
 from sonde_locs import sonde_locs
-from useful import thermodynamics as th
-from useful.cube_processing import *
-from useful.general_plotting_fns import centred_cnorm
-from useful.miscellaneous import make_great_circle_points, convert_list_to_ukv_coords
-from useful.pp_processing import data_from_pp_filename
+from plotting_fns import centred_cnorm
+import thermodynamics as th
+from miscellaneous import make_great_circle_points, convert_list_to_ukv_coords
+from pp_processing import data_from_pp_filename
+from cube_processing import *
 
 
 # keep in mind that  the functions here might use global variables specific to this file
