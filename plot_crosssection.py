@@ -1,5 +1,6 @@
 import sys
 from types import SimpleNamespace
+import os
 
 import iris.plot as iplt
 import matplotlib.cm as mpl_cm
@@ -64,7 +65,8 @@ def plot_xsect_map(cube_single_level, great_circle=None, cmap="brewer_PuOr_11", 
               f'm {year}/{month}/{day} at {s.h}h ({forecast_time})')
 
     plt.tight_layout()
-    plt.savefig(f'~/Documents/tephiplot/plots/xsect_map{custom_save}_{year}{month}{day}_{s.h}.png', dpi=300)
+    my_path = os.path.abspath('plots/')
+    plt.savefig(os.path.join(my_path, f'xsect_map{custom_save}_{year}{month}{day}_{s.h}.png'), dpi=300)
     plt.show()
 
 
@@ -110,7 +112,9 @@ def plot_xsect(w_xsect, theta_xsect, RH_xsect, max_height=5000, cmap="brewer_PuO
     plt.ylabel('Altitude / m')
     plt.ylim((0, max_height))
     plt.xlabel(f'Distance along great circle / {w_xsect.coord(coords[0]).units}')
-    plt.savefig(f'~/Documents/tephiplot/plots/xsect{custom_save}_{year}{month}{day}_{s.h}.png', dpi=300)
+
+    my_path = os.path.abspath('plots/')
+    plt.savefig(os.path.join(my_path, f'xsect{custom_save}_{year}{month}{day}_{s.h}.png'), dpi=300)
     plt.show()
 
 
