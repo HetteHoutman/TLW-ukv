@@ -10,7 +10,7 @@ import json
 from sonde_locs import sonde_locs
 from plotting_fns import centred_cnorm
 import thermodynamics as th
-from miscellaneous import make_great_circle_points, convert_list_to_ukv_coords
+from miscellaneous import make_great_circle_points, convert_list_to_ukv_coords, check_argv_num, load_settings
 from pp_processing import data_from_pp_filename
 from cube_processing import *
 
@@ -144,49 +144,6 @@ def load_and_process(reg_filename, orog_filename):
     w_cube, theta_cube, RH_cube = add_orography(orog_cube, w_cube, theta_cube, RH_cube)
 
     return w_cube, theta_cube, RH_cube
-
-
-def load_settings(file):
-    """
-    loads the settings for a TLW case from json file
-    Parameters
-    ----------
-    file : str
-        the .json file
-
-    Returns
-    -------
-    SimpleNamespace
-        containing settings
-    """
-    with open(file) as f:
-        settings = json.load(f, object_hook=lambda d: SimpleNamespace(**d))
-
-    return settings
-
-
-def check_argv_num(argv, num_args, message=None):
-    """
-    Checks whether the number of arguments given through the command line is the correct number for the file
-    Parameters
-    ----------
-    argv : list
-        sys.argv
-    num_args : int
-        the required number of arguments for the file
-    message : str
-        message to append to Exception raised
-
-    Returns
-    -------
-
-    """
-    text = f'Gave {len(sys.argv) - 1} arguments but this file takes exactly {num_args} '
-    if message is not None:
-        text += message
-
-    if len(argv) - 1 != num_args:
-        raise Exception(text)
 
 
 if __name__ == '__main__':
