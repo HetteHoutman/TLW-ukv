@@ -1,6 +1,4 @@
 import numpy as np
-from iris.analysis import trajectory
-from pyproj import Geod
 
 # TODO possible split functions between different files if this file gets too long/general
 
@@ -23,6 +21,8 @@ def make_great_circle_points(start, end, n):
     ndarray
         of shape (n). corresponding distances of points along the great circle from start
     """
+    from pyproj import Geod
+    # TODO copy that web source and change n to desired km resolution?
     g = Geod(ellps='WGS84')
     _, _, dist = g.inv(*start, *end)
     distances = np.linspace(0, dist, n)
@@ -42,6 +42,7 @@ def make_custom_traj(sample_points):
     -------
     iris.analysis.Trajectory
     """
+    from iris.analysis import trajectory
     waypoints = [{'grid_longitude': sample_points[0][0], 'grid_latitude': sample_points[0][1]},
                  {'grid_longitude': sample_points[-1][0], 'grid_latitude': sample_points[-1][1]}]
     traj = trajectory.Trajectory(waypoints, sample_count=sample_points.shape[0])
