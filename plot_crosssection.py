@@ -161,10 +161,33 @@ def load_settings(file):
     return settings
 
 
-if __name__ == '__main__':
+def check_argv_num(argv, num_args, message=None):
+    """
+    Checks whether the number of arguments given through the command line is the correct number for the file
+    Parameters
+    ----------
+    argv : list
+        sys.argv
+    num_args : int
+        the required number of arguments for the file
+    message : str
+        message to append to Exception raised
 
-    if len(sys.argv) != 2:
-        raise Exception(f'Gave {len(sys.argv) - 1} arguments but this file takes exactly 1 (settings.json)')
+    Returns
+    -------
+
+    """
+    text = f'Gave {len(sys.argv) - 1} arguments but this file takes exactly {num_args} '
+    if message is not None:
+        text += message
+
+    if len(argv) - 1 != num_args:
+        raise Exception(text)
+
+
+if __name__ == '__main__':
+    # check correct number of cmd arguments
+    check_argv_num(sys.argv, 1, message='(settings json file)')
 
     # load settings
     s = load_settings(sys.argv[1])
