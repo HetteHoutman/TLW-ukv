@@ -57,8 +57,8 @@ def plot_xsect_map(cube_single_level, great_circle=None, cmap="brewer_PuOr_11", 
     if not whitespace:
         lats = cube_single_level.coord('latitude').points
         lons = cube_single_level.coord('longitude').points
-        plt.xlim(lons[0,0], lons[-1,-1])
-        plt.ylim(lats[0,-1], lats[-1,0])
+        plt.xlim(lons[0, 0], lons[-1, -1])
+        plt.ylim(lats[0, -1], lats[-1, 0])
 
     plt.title(f'UKV {cube_single_level.coord("level_height").points[0]:.0f} '
               f'm {year}/{month}/{day} at {s.h}h ({forecast_time})')
@@ -66,6 +66,7 @@ def plot_xsect_map(cube_single_level, great_circle=None, cmap="brewer_PuOr_11", 
     plt.tight_layout()
     plt.savefig(f'plots/xsect_map{custom_save}_{year}{month}{day}_{s.h}.png', dpi=300)
     plt.show()
+
 
 def plot_xsect(w_xsect, theta_xsect, RH_xsect, max_height=5000, cmap="brewer_PuOr_11", custom_save='', RH_level=0.75):
     """
@@ -98,7 +99,7 @@ def plot_xsect(w_xsect, theta_xsect, RH_xsect, max_height=5000, cmap="brewer_PuO
 
     orog = w_xsect.coord('surface_altitude').points
     x = w_xsect.coord('distance_from_start').points
-    plt.fill_between(x, orog, where=orog>0, color='k', interpolate=True)
+    plt.fill_between(x, orog, where=orog > 0, color='k', interpolate=True)
 
     plt.colorbar(w_con, label='Upward air velocity / m/s',
                  # location='bottom',
@@ -111,6 +112,7 @@ def plot_xsect(w_xsect, theta_xsect, RH_xsect, max_height=5000, cmap="brewer_PuO
     plt.xlabel(f'Distance along great circle / {w_xsect.coord(coords[0]).units}')
     plt.savefig(f'plots/xsect{custom_save}_{year}{month}{day}_{s.h}.png', dpi=300)
     plt.show()
+
 
 def load_and_process(reg_filename, orog_filename):
     w_cube = read_variable(reg_filename, 150, s.h)
@@ -139,19 +141,33 @@ def load_and_process(reg_filename, orog_filename):
 
     return w_cube, theta_cube, RH_cube
 
-def load_settings():
-    if len(sys.argv) != 2:
-        raise Exception(f'Gave {len(sys.argv) - 1} arguments but this file takes exactly 1 (settings.json)')
-    file = sys.argv[1]
+
+def load_settings(file):
+    """
+    loads the settings for a TLW case from json file
+    Parameters
+    ----------
+    file : str
+        the .json file
+
+    Returns
+    -------
+    SimpleNamespace
+        containing settings
+    """
     with open(file) as f:
         settings = json.load(f, object_hook=lambda d: SimpleNamespace(**d))
 
     return settings
 
+
 if __name__ == '__main__':
 
+    if len(sys.argv) != 2:
+        raise Exception(f'Gave {len(sys.argv) - 1} arguments but this file takes exactly 1 (settings.json)')
+
     # load settings
-    s = load_settings()
+    s = load_settings(sys.argv[1])
 
     # load cubes
     year, month, day, forecast_time = data_from_pp_filename(s.reg_file)
@@ -170,7 +186,8 @@ if __name__ == '__main__':
     plot_xsect_map(w_single_level, great_circle=gc, whitespace=True)
 
     # make cross-sections and plot them
-    cubes_sliced = cube_slice(*cubes, bottom_left=s.interp_bottomleft, top_right=s.interp_topright, height=(0, s.max_height))
+    cubes_sliced = cube_slice(*cubes, bottom_left=s.interp_bottomleft, top_right=s.interp_topright,
+                              height=(0, s.max_height))
     cubes_xsect = cube_custom_line_interpolate(gc_model, *cubes_sliced)
     cubes_xsect = add_dist_coord(dists, *cubes_xsect)
 
