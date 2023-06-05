@@ -11,5 +11,6 @@
   "gc_start" : [-9.5, 51.8],
   "gc_end" : [-9, 52],
   "n" : 200,
-  "cmap" : "brewer_PuOr_11"
+  "cmap" : "brewer_PuOr_11",
+  "sat_file" : "C:/Users/sw825517/OneDrive - University of Reading/research/code/eumetsat/data/MSG3-SEVI-MSG15-0100-NA-20150414122741.433000000Z-NA/MSG3-SEVI-MSG15-0100-NA-20150414122741.433000000Z-NA.nat"
 }
