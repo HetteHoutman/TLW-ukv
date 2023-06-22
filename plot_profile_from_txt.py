@@ -6,8 +6,8 @@ import pandas as pd
 from met_fns import N_squared, scorer_param
 
 
-def plot_profile(l2, height, N2U2, theta, wind, direction):
-  fig, (ax, ax3) = plt.subplots(1,2, sharey=True)
+def plot_profile(l2, height, N2U2, theta, wind, direction, figsize=(4,4)):
+  fig, (ax, ax3) = plt.subplots(1,2, sharey=True, figsize=figsize)
   ax2 = ax.twiny()
   ax4 = ax3.twiny()
 

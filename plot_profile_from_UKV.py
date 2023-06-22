@@ -76,11 +76,12 @@ if __name__ == '__main__':
     l2 = scorer_param(N2, u_col, height)
 
     # plot
-    fig = plot_profile(l2, height, N2U2, theta_col, spd_col, dir_col)
+    fig = plot_profile(l2, height, N2U2, theta_col, spd_col, dir_col, figsize=(8,4))
 
     true_x, true_y = crs_latlon.transform_point(true_model_x, true_model_y, crs_rotated)
     title = f'UKV ({true_x:.02f}, {true_y:.02f}) on {year}/{month}/{day} at {h} ({forecast_time})'
     # plt.suptitle(title)
     plt.tight_layout()
     plt.savefig(f'plots/profile_from_UKV_({true_x:.02f}_{true_y:.02f})_{year}{month}{day}_{h}.png', dpi=300)
+    print(N2)
     plt.show()
