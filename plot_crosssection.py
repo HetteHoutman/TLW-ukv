@@ -100,7 +100,7 @@ def plot_xsect(w_xsect, theta_xsect, RH_xsect, max_height=5000, cmap="brewer_PuO
         plt.figure(figsize=figsize)
     w_con = iplt.contourf(w_xsect, cmap=mpl_cm.get_cmap(cmap), norm=centred_cnorm(w_xsect.data), coords=coords)
     theta_con = iplt.contour(theta_xsect, colors='k', linestyles='--', coords=coords)
-    RH_con = iplt.contourf(RH_xsect, levels=[0.95, 1], colors='none', linestyles='none', coords=coords, hatches=['..'])
+    RH_con = iplt.contourf(RH_xsect, levels=[RH_level, 1], colors='none', linestyles='none', coords=coords, hatches=['..'])
 
     orog = w_xsect.coord('surface_altitude').points
     x = w_xsect.coord('distance_from_start').points
@@ -179,4 +179,4 @@ if __name__ == '__main__':
     cubes_xsect = cube_custom_line_interpolate(gc_model, *cubes_sliced)
     cubes_xsect = add_dist_coord(dists, *cubes_xsect)
 
-    plot_xsect(*cubes_xsect, max_height=s.max_height, figsize=(8, 4))
+    plot_xsect(*cubes_xsect, max_height=s.max_height, RH_level=s.RH_level, figsize=(8, 4))
