@@ -11,9 +11,9 @@ def plot_profile(l2, height, N2U2, theta, wind, direction):
   ax2 = ax.twiny()
   ax4 = ax3.twiny()
 
-  line_l2 = ax2.plot(l2, height, color='tab:red', linestyle='-', label='l^2')
-  line_N2U2 = ax2.plot(N2U2, height, color='tab:red', linestyle='--', label='N^2/U^2')
-  line_theta = ax.plot(theta, height, color='tab:blue', label='theta')
+  line_l2 = ax2.plot(l2, height, color='tab:red', linestyle='-', label='$l^2$')
+  line_N2U2 = ax2.plot(N2U2, height, color='tab:red', linestyle='--', label='$N^2/U^2$')
+  line_theta = ax.plot(theta, height, color='tab:blue', label=r'$\theta$')
   line_wind = ax3.plot(wind, height, color='tab:purple', label='wind speed')
   line_dir = ax4.scatter(direction, height, color='tab:olive', label='wind direction')
 
@@ -23,11 +23,11 @@ def plot_profile(l2, height, N2U2, theta, wind, direction):
 
   ax2.set_xlim((-1e-5, 1e-5))
 
-  ax.set_xlabel('Potential temperature (K)')
-  ax.set_ylabel('Altitude (m)')
-  ax2.set_xlabel('l^2 (m^-2)')
-  ax3.set_xlabel('Wind speed (m/s)')
-  ax4.set_xlabel('Wind direction (degrees)')
+  ax.set_xlabel('Potential temperature ($K$)')
+  ax.set_ylabel('Altitude ($m$)')
+  ax2.set_xlabel('$l^2$($m^{-2}$)')
+  ax3.set_xlabel('Wind speed ($ms^{-1}$)')
+  ax4.set_xlabel('Wind direction (deg)')
   return fig
 
 

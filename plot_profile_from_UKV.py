@@ -1,3 +1,5 @@
+import sys
+
 import cartopy.crs as ccrs
 import matplotlib.pyplot as plt
 import numpy as np
@@ -5,19 +7,22 @@ import numpy as np
 import thermodynamics as th
 from cube_processing import read_variable
 from met_fns import uv_to_spddir, N_squared, scorer_param
-from miscellaneous import convert_to_ukv_coords, index_selector
+from miscellaneous import convert_to_ukv_coords, index_selector, load_settings
 from plot_profile_from_txt import plot_profile
 
 if __name__ == '__main__':
+    # TODO plot altitude not model height
     # read file and load fields
-    indir = '/home/users/sw825517/Documents/ukv_data/'
-    filename = indir + 'prodm_op_ukv_20150414_09_004.pp'
+    s = load_settings(sys.argv[1])
+    # indir = '/home/users/sw825517/Documents/ukv_data/'
+    # filename = indir + 'prodm_op_ukv_20150414_09_004.pp'
+    filename = s.reg_file
 
     year = filename[-18:-14]
     month = filename[-14:-12]
     day = filename[-12:-10]
     forecast_time = filename[-9:-7]
-    h = 12
+    h = s.h
 
     u_cube = read_variable(filename, 2, h)
     v_cube = read_variable(filename, 3, h)
@@ -34,8 +39,11 @@ if __name__ == '__main__':
 
     # coordinates given in regular lat lon, convert to model's rotated pole system
     # currently the code just plots the profiles at the nearest T grid point of the model.
-    xpos = -10.35
-    ypos = 51.9
+    # xpos = -10.35
+    # ypos = 51.9
+    xpos = s.gc_start[0]
+    ypos = s.gc_start[1]
+
     lats = T_cube.coord('grid_latitude').points
     lons = T_cube.coord('grid_longitude').points
 
@@ -72,7 +80,7 @@ if __name__ == '__main__':
 
     true_x, true_y = crs_latlon.transform_point(true_model_x, true_model_y, crs_rotated)
     title = f'UKV ({true_x:.02f}, {true_y:.02f}) on {year}/{month}/{day} at {h} ({forecast_time})'
-    plt.suptitle(title)
+    # plt.suptitle(title)
     plt.tight_layout()
     plt.savefig(f'plots/profile_from_UKV_({true_x:.02f}_{true_y:.02f})_{year}{month}{day}_{h}.png', dpi=300)
     plt.show()
