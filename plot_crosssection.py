@@ -1,18 +1,16 @@
 import sys
-from types import SimpleNamespace
-import os
 
 import iris.plot as iplt
 import matplotlib.cm as mpl_cm
 import matplotlib.pyplot as plt
-import json
+import os
 
-from sonde_locs import sonde_locs
-from plotting_fns import centred_cnorm
 import thermodynamics as th
-from miscellaneous import make_great_circle_points, convert_list_to_ukv_coords, check_argv_num, load_settings
-from pp_processing import data_from_pp_filename
 from cube_processing import *
+from miscellaneous import make_great_circle_points, convert_list_to_ukv_coords, check_argv_num, load_settings
+from plotting_fns import centred_cnorm
+from pp_processing import data_from_pp_filename
+from sonde_locs import sonde_locs
 
 
 # keep in mind that  the functions here might use global variables specific to this file
@@ -70,7 +68,8 @@ def plot_xsect_map(cube_single_level, great_circle=None, cmap="brewer_PuOr_11", 
     plt.show()
 
 
-def plot_xsect(w_xsect, theta_xsect, RH_xsect, max_height=5000, cmap="brewer_PuOr_11", custom_save='', RH_level=0.75):
+def plot_xsect(w_xsect, theta_xsect, RH_xsect, max_height=5000, cmap="brewer_PuOr_11", custom_save='', RH_level=0.75,
+               figsize=None):
     """
     Plots the cross section of the w, theta and RH fields.
     Parameters
@@ -89,15 +88,19 @@ def plot_xsect(w_xsect, theta_xsect, RH_xsect, max_height=5000, cmap="brewer_PuO
         optional addition to the save file name to distinguish it from others
     RH_level : float
         relative humidity above which to hatch
+    figsize : tuple
+        figure size
 
     Returns
     -------
 
     """
     coords = ['distance_from_start', 'altitude']
+    if figsize is not None:
+        plt.figure(figsize=figsize)
     w_con = iplt.contourf(w_xsect, cmap=mpl_cm.get_cmap(cmap), norm=centred_cnorm(w_xsect.data), coords=coords)
     theta_con = iplt.contour(theta_xsect, colors='k', linestyles='--', coords=coords)
-    RH_con = iplt.contourf(RH_xsect, levels=[0.75, 1], colors='none', linestyles='none', coords=coords, hatches=['..'])
+    RH_con = iplt.contourf(RH_xsect, levels=[0.95, 1], colors='none', linestyles='none', coords=coords, hatches=['..'])
 
     orog = w_xsect.coord('surface_altitude').points
     x = w_xsect.coord('distance_from_start').points
@@ -115,6 +118,7 @@ def plot_xsect(w_xsect, theta_xsect, RH_xsect, max_height=5000, cmap="brewer_PuO
 
     my_dir = os.path.dirname(os.path.abspath(__file__))
     plt.savefig(os.path.join(my_dir, f'plots/xsect{custom_save}_{year}{month}{day}_{s.h}.png'), dpi=300)
+    plt.tight_layout()
     plt.show()
 
 
@@ -175,4 +179,4 @@ if __name__ == '__main__':
     cubes_xsect = cube_custom_line_interpolate(gc_model, *cubes_sliced)
     cubes_xsect = add_dist_coord(dists, *cubes_xsect)
 
-    plot_xsect(*cubes_xsect, max_height=s.max_height)
+    plot_xsect(*cubes_xsect, max_height=s.max_height, figsize=(8, 4))
