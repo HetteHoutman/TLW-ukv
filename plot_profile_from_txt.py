@@ -6,7 +6,7 @@ import pandas as pd
 from met_fns import N_squared, scorer_param
 
 
-def plot_profile(l2, height, N2U2, theta, wind, direction, figsize=(4,4)):
+def plot_profile(l2, height, N2U2, theta, wind, direction, figsize=(4,4), xlim=None):
   fig, (ax, ax3) = plt.subplots(1,2, sharey=True, figsize=figsize)
   ax2 = ax.twiny()
   ax4 = ax3.twiny()
@@ -21,7 +21,8 @@ def plot_profile(l2, height, N2U2, theta, wind, direction, figsize=(4,4)):
   labels = [l.get_label() for l in lines]
   ax.legend(lines, labels, loc='best')
 
-  ax2.set_xlim((-1e-5, 1e-5))
+  if xlim is not None:
+    ax2.set_xlim(xlim)
 
   ax.set_xlabel('Potential temperature ($K$)')
   ax.set_ylabel('Altitude ($m$)')
