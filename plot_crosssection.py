@@ -119,7 +119,6 @@ def plot_xsect(w_xsect, theta_xsect, RH_xsect, max_height=5000, cmap="brewer_PuO
     my_dir = os.path.dirname(os.path.abspath(__file__))
     plt.savefig(os.path.join(my_dir, f'plots/xsect{custom_save}_{year}{month}{day}_{s.h}.png'), dpi=300)
     plt.tight_layout()
-    plt.show()
 
 
 def load_and_process(reg_filename, orog_filename):
@@ -180,3 +179,4 @@ if __name__ == '__main__':
     cubes_xsect = add_dist_coord(dists, *cubes_xsect)
 
     plot_xsect(*cubes_xsect, max_height=s.max_height, RH_level=s.RH_level, figsize=(8, 4))
+    plt.show()
