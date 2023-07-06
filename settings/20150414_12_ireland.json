@@ -3,14 +3,17 @@
   "h" : 12,
   "orog_h" : 9,
   "map_bottomleft" : [-10.35, 51.5],
-  "map_topright" : [-8.9, 52.1],
-  "map_height" : 750,
+  "map_topright" : [-8.9, 52.6],
+  "map_height" : 1500,
   "max_height" : 5000,
   "interp_bottomleft" : [-9.6, 51.6],
   "interp_topright" : [-8.9, 52.1],
   "gc_start" : [-9.5, 51.8],
   "gc_end" : [-9, 52],
   "n" : 200,
+  "RH_level" : 0.85,
   "cmap" : "brewer_PuOr_11",
-  "sat_file" : "C:/Users/sw825517/OneDrive - University of Reading/research/code/eumetsat/data/MSG3-SEVI-MSG15-0100-NA-20150414122741.433000000Z-NA/MSG3-SEVI-MSG15-0100-NA-20150414122741.433000000Z-NA.nat"
+  "sat_file" : "C:/Users/sw825517/OneDrive - University of Reading/research/code/eumetsat/data/MSG3-SEVI-MSG15-0100-NA-20150414122741.433000000Z-NA/MSG3-SEVI-MSG15-0100-NA-20150414122741.433000000Z-NA.nat",
+  "satellite_bottomleft" : [-11, 51],
+  "satellite_topright" : [-5, 55.5]
 }

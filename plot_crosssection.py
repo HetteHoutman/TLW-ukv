@@ -1,5 +1,6 @@
 import sys
 
+import iris.coords
 import iris.plot as iplt
 import matplotlib.cm as mpl_cm
 import matplotlib.pyplot as plt
@@ -59,7 +60,7 @@ def plot_xsect_map(cube_single_level, great_circle=None, cmap="brewer_PuOr_11", 
         plt.xlim(lons[0, 0], lons[-1, -1])
         plt.ylim(lats[0, -1], lats[-1, 0])
 
-    plt.title(f'UKV {cube_single_level.coord("level_height").points[0]:.0f} '
+    plt.title(f'UKV {s.map_height:.0f} '
               f'm {year}/{month}/{day} at {s.h}h ({forecast_time})')
 
     plt.tight_layout()
@@ -169,10 +170,10 @@ if __name__ == '__main__':
     gc_model = convert_list_to_ukv_coords(gc[0], gc[1], crs_latlon, crs_rotated)
 
     # plot map for clarity
-    w_single_level = cube_at_single_level(cubes[0], s.map_height, bottomleft=s.map_bottomleft, topright=s.map_topright)
-    plot_xsect_map(w_single_level, great_circle=gc, whitespace=True)
+    w_single_level = cube_at_single_level(cubes[0], s.map_height, coord='altitude', bottomleft=s.map_bottomleft, topright=s.map_topright)
+    plot_xsect_map(w_single_level[0], great_circle=gc, whitespace=True)
 
-    # make cross-sections and plot them
+    # make cross-sections from sliced cubed to save computation time and plot them
     cubes_sliced = cube_slice(*cubes, bottom_left=s.interp_bottomleft, top_right=s.interp_topright,
                               height=(0, s.max_height))
     cubes_xsect = cube_custom_line_interpolate(gc_model, *cubes_sliced)

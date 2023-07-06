@@ -33,7 +33,7 @@ if __name__ == '__main__':
     orog_cube = read_variable(s.orog_file, 33, s.orog_h)
 
     q_cube = check_level_heights(q_cube, T_cube)
-
+    # TODO check that this properly converts vectors to new coord system
     u_cube = u_cube.regrid(T_cube, iris.analysis.Linear())
     v_cube = v_cube.regrid(T_cube, iris.analysis.Linear())
 
@@ -83,12 +83,12 @@ if __name__ == '__main__':
     l2 = scorer_param(N2, u_col.data[level_mask], height)
 
     # plot
-    fig = plot_profile(l2, height, N2U2, theta_col[level_mask], spd_col[level_mask], dir_col[level_mask], figsize=(6,4),
+    fig = plot_profile(l2, height, N2U2, theta_col[level_mask], spd_col[level_mask], dir_col[level_mask], figsize=(7,4),
                        xlim=(-5e-5, 5e-5))
 
     true_x, true_y = crs_latlon.transform_point(true_model_x, true_model_y, crs_rotated)
     title = f'UKV ({true_x:.02f}, {true_y:.02f}) on {year}/{month}/{day} at {h} ({forecast_time})'
-    plt.suptitle(title)
+    # plt.suptitle(title)
     plt.tight_layout()
     plt.savefig(f'plots/profile_from_UKV_({true_x:.02f}_{true_y:.02f})_{year}{month}{day}_{h}.png', dpi=300)
     plt.show()

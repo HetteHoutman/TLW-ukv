@@ -66,7 +66,8 @@ if __name__ == '__main__':
 
   # plot
   mask = (height<5000)
-  fig = plot_profile(l2[mask], height[mask], N2U2[mask], theta[mask], wind[mask], data.DRCT.values[mask])
+  fig = plot_profile(l2[mask], height[mask], N2U2[mask], theta[mask], wind[mask], data.DRCT.values[mask],
+                     figsize=(7,4), xlim=(-5e-5, 5e-5))
   title = f'Station {station}, {year}/{month}/{day} {time}'
   plt.suptitle(title)
 
