@@ -133,10 +133,7 @@ def load_and_process(reg_filename, orog_filename):
     q_cube = check_level_heights(q_cube, t_cube)
 
     # add true lat lon
-    grid_latlon = get_grid_latlon_from_rotated(w_cube)
-    add_grid_latlon_to_cube(w_cube, grid_latlon)
-    add_grid_latlon_to_cube(p_cube, grid_latlon)
-    add_grid_latlon_to_cube(orog_cube, grid_latlon)
+    add_true_latlon_coords(w_cube, p_cube, orog_cube)
 
     # create theta and RH cubes
     theta_cube = cube_from_array_and_cube(th.potential_temperature(t_cube.data, p_cube.data), p_cube, unit='K',
@@ -145,7 +142,7 @@ def load_and_process(reg_filename, orog_filename):
                                        std_name='relative_humidity')
 
     # now add orography hybrid height factory to desired cubes
-    w_cube, theta_cube, RH_cube = add_orography(orog_cube, w_cube, theta_cube, RH_cube)
+    add_orography(orog_cube, w_cube, theta_cube, RH_cube)
 
     return w_cube, theta_cube, RH_cube
 
@@ -177,7 +174,7 @@ if __name__ == '__main__':
     cubes_sliced = cube_slice(*cubes, bottom_left=s.interp_bottomleft, top_right=s.interp_topright,
                               height=(0, s.max_height))
     cubes_xsect = cube_custom_line_interpolate(gc_model, *cubes_sliced)
-    cubes_xsect = add_dist_coord(dists, *cubes_xsect)
+    add_dist_coord(dists, *cubes_xsect)
 
     plot_xsect(*cubes_xsect, max_height=s.max_height, RH_level=s.RH_level, figsize=(8, 4))
     plt.show()

@@ -6,12 +6,13 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pyproj
 import scipy.interpolate
+from iris.analysis.cartography import rotate_winds
 from matplotlib import ticker, colors
 import iris.plot as iplt
 import cartopy.crs as ccrs
 
 from cube_processing import read_variable, get_grid_latlon_from_rotated, add_grid_latlon_to_cube, cube_at_single_level, \
-    add_orography
+    add_orography, add_true_latlon_coords
 from miscellaneous import check_argv_num, load_settings
 from scipy import stats
 from scipy.signal import argrelmax
@@ -309,6 +310,39 @@ def plot_pspec_polar(wnum_bins, theta_bins, radial_pspec_array, scale='linear', 
     plt.ylabel(r'$\theta$')
 
 
+def create_latlon_cube():
+    n = 500
+    lat_bounds = [s.satellite_bottomleft[1], s.satellite_topright[1]]
+    lon_bounds = [s.satellite_bottomleft[0], s.satellite_topright[0]]
+    lat_coord = iris.coords.DimCoord(np.linspace(*lat_bounds, n), standard_name='latitude', units='degrees')
+    lon_coord = iris.coords.DimCoord(np.linspace(*lon_bounds, n), standard_name='longitude', units='degrees')
+    empty = iris.cube.Cube(np.empty((n, n)), dim_coords_and_dims=[(lat_coord, 0), (lon_coord, 1)])
+    new_cs = iris.coord_systems.GeogCS(iris.fileformats.pp.EARTH_RADIUS)
+    empty.coord(axis='x').coord_system = new_cs
+    empty.coord(axis='y').coord_system = new_cs
+
+    return empty
+
+
+def plot_wind(w_cube, u_cube, v_cube, step=25):
+    fig, ax = plt.subplots(1, 1,
+                           subplot_kw={'projection': ccrs.PlateCarree()}
+                           )
+    iplt.pcolormesh(w_cube[0], norm=mpl.colors.CenteredNorm())
+    iplt.quiver(u_cube[0, ::step, ::step], v_cube[0, ::step, ::step], pivot='middle')
+    ax.gridlines(draw_labels=True)
+    ax.coastlines()
+    ax.set_xlabel('True Longitude / deg')
+    ax.set_ylabel('True Latitude / deg')
+    plt.colorbar(label='Upward air velocity / m/s',
+                 location='bottom',
+                 # orientation='vertical'
+                 )
+    # plt.xlim(lon_bounds)
+    # plt.ylim(lat_bounds)
+    plt.show()
+
+
 if __name__ == '__main__':
     check_argv_num(sys.argv, 1, "(settings json file)")
     s = load_settings(sys.argv[1])
@@ -318,56 +352,23 @@ if __name__ == '__main__':
     v_cube = read_variable(s.reg_file, 3, s.h).regrid(w_cube, iris.analysis.Linear())
     orog_cube = read_variable(s.orog_file, 33, s.orog_h)
 
-    grid_latlon = get_grid_latlon_from_rotated(w_cube)
-    add_grid_latlon_to_cube(w_cube, grid_latlon)
-    add_grid_latlon_to_cube(u_cube, grid_latlon)
-    add_grid_latlon_to_cube(v_cube, grid_latlon)
-    add_grid_latlon_to_cube(orog_cube, grid_latlon)
     w_cube, u_cube, v_cube = add_orography(orog_cube, w_cube, u_cube, v_cube)
 
     w_single_level = cube_at_single_level(w_cube, s.map_height, coord='altitude', bottomleft=s.map_bottomleft, topright=s.map_topright)
     u_single_level = cube_at_single_level(u_cube, s.map_height, bottomleft=s.map_bottomleft, topright=s.map_topright)
     v_single_level = cube_at_single_level(v_cube, s.map_height, bottomleft=s.map_bottomleft, topright=s.map_topright)
-    n = 500
-    lat_bounds = [s.satellite_bottomleft[1], s.satellite_topright[1]]
-    lon_bounds = [s.satellite_bottomleft[0], s.satellite_topright[0]]
 
-    lat_coord = iris.coords.DimCoord(np.linspace(*lat_bounds, n), standard_name='latitude', units='degrees')
-    lon_coord = iris.coords.DimCoord(np.linspace(*lon_bounds, n), standard_name='longitude', units='degrees')
-
-    empty = iris.cube.Cube(np.empty((n, n)), dim_coords_and_dims=[(lat_coord, 0), (lon_coord, 1)])
-    new_cs = iris.coord_systems.GeogCS(iris.fileformats.pp.EARTH_RADIUS)
-    empty.coord(axis='x').coord_system = new_cs
-    empty.coord(axis='y').coord_system = new_cs
+    empty = create_latlon_cube()
 
     orig = w_single_level.regrid(empty, iris.analysis.Linear())
-    u_new = u_single_level.regrid(empty, iris.analysis.Linear())
-    v_new = v_single_level.regrid(empty, iris.analysis.Linear())
+    u_rot, v_rot = rotate_winds(u_single_level, v_single_level, empty.coord_system())
+    u_rot = u_rot.regrid(empty, iris.analysis.Linear())
+    v_rot = v_rot.regrid(empty, iris.analysis.Linear())
 
-    crs_rot = ccrs.RotatedPole(pole_longitude=177.5, pole_latitude=37.5)
-    crs_latlon = ccrs.PlateCarree()
-    # true_u, true_v = crs_latlon.transform_vectors(crs_rot, grid_latlon['rot_lons'], grid_latlon['rot_lats'],
-    #                                               u_new.data, v_new.data)
-    # u_new.data, v_new.data = true_u, true_v
+    # TODO clean and put in functions
+    plot_wind(orig, u_rot, v_rot)
 
-    # currently DOES interpolate w field, but does not interpolate u or v, because I cant yet
-    # work out how to do that correctly (or whether iris does it correctly for me)
-
-    fig, ax = plt.subplots(1, 1, subplot_kw={'projection': crs_latlon})
-    iplt.contourf(orig[0], norm=mpl.colors.CenteredNorm())
-    step = 10
-    iplt.quiver(u_single_level[0, ::step, ::step], v_single_level[0, ::step, ::step], pivot='middle')
-    ax.gridlines(crs=crs_latlon, draw_labels=True)
-    ax.coastlines()
-    ax.set_xlabel('True Longitude / deg')
-    ax.set_ylabel('True Latitude / deg')
-    plt.colorbar(label='Upward air velocity / m/s',
-                 location='bottom',
-                 # orientation='vertical'
-                 )
-    plt.xlim(lon_bounds)
-    plt.ylim(lat_bounds)
-    plt.show()
+    add_true_latlon_coords(w_cube, u_cube, v_cube, orog_cube)
 
     Lx, Ly = extract_distances(orig.coords('latitude')[0].points, orig.coords('longitude')[0].points)
     orig = orig[0, ::-1].data
@@ -399,7 +400,6 @@ if __name__ == '__main__':
     # radial_pspec *= wnum_vals**2
 
     bounded_polar_pspec, bounded_wnum_vals = apply_wnum_bounds(radial_pspec, wnum_vals, wnum_bins, (min_lambda, max_lambda))
-
     dominant_wnum, dominant_theta = find_max(bounded_polar_pspec, bounded_wnum_vals, theta_vals)
 
     plot_pspec_polar(wnum_bins, theta_bins, radial_pspec)
