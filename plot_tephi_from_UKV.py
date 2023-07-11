@@ -7,6 +7,8 @@ from cube_processing import check_level_heights, read_variable
 from met_fns import uv_to_spddir
 from miscellaneous import convert_to_ukv_coords, index_selector
 
+# TODO make sure winds are rotated correctly
+
 indir = '/home/users/sw825517/Documents/ukv_data/'
 filename = indir + 'prodm_op_ukv_20150414_09_004.pp'
 
