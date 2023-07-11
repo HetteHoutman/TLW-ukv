@@ -1,21 +1,22 @@
 import sys
 
-import matplotlib as mpl
+import cartopy.crs as ccrs
 import iris.cube
+import iris.plot as iplt
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
 import pyproj
 import scipy.interpolate
 from iris.analysis.cartography import rotate_winds
 from matplotlib import ticker, colors
-import iris.plot as iplt
-import cartopy.crs as ccrs
-
-from cube_processing import read_variable, get_grid_latlon_from_rotated, add_grid_latlon_to_cube, cube_at_single_level, \
-    add_orography, add_true_latlon_coords
-from miscellaneous import check_argv_num, load_settings
 from scipy import stats
 from scipy.signal import argrelmax
+
+from cube_processing import read_variable, cube_at_single_level, add_orography, add_true_latlon_coords, \
+    create_latlon_cube
+from miscellaneous import check_argv_num, load_settings
+
 
 def ideal_bandpass(ft, Lx, Ly, low, high):
     _, _, dist_array, thetas = recip_space(Lx, Ly, ft.shape)
@@ -59,6 +60,7 @@ def create_bins(range, bin_width):
     vals = 0.5 * (bins[1:] + bins[:-1])
     return bins, vals
 
+
 def stripey_test(orig_shape, Lx, Ly, wavelens, angles):
     x = np.linspace(-Lx / 2, Lx / 2, orig_shape[1])
     y = np.linspace(-Ly / 2, Ly / 2, orig_shape[0])
@@ -77,7 +79,6 @@ def stripey_test(orig_shape, Lx, Ly, wavelens, angles):
 
 
 def make_radial_pspec(pspec_2d: np.ma.masked_array, wavenumbers, wavenumber_bin_width, thetas, theta_bin_width):
-    # TODO get rid of angular pspec since this function essentially does the same?
     wnum_bins, wnum_vals = create_bins((0, wavenumbers.max()), wavenumber_bin_width)
     theta_ranges, theta_vals = create_bins((-theta_bin_width / 2, 180 - theta_bin_width / 2), theta_bin_width)
     thetas_redefined = thetas.copy()
@@ -100,6 +101,7 @@ def make_radial_pspec(pspec_2d: np.ma.masked_array, wavenumbers, wavenumber_bin_
 
 def make_angular_pspec(pspec_2d: np.ma.masked_array, thetas, theta_bin_width, wavelengths, wavelength_ranges):
     # TODO change pspec_2d to normal array not masked, as this is not needed
+    # TODO get rid of this function? not needed anymore
     theta_bins, theta_vals = create_bins((-theta_bin_width / 2, 180 - theta_bin_width / 2), theta_bin_width)
     thetas_redefined = thetas.copy()
     thetas_redefined[(180 - theta_bin_width / 2 <= thetas_redefined) & (thetas_redefined < 180)] -= 180
@@ -119,14 +121,16 @@ def make_angular_pspec(pspec_2d: np.ma.masked_array, thetas, theta_bin_width, wa
 
     return ang_pspec_array, theta_vals
 
+
 def make_stripes(X, Y, wavelength, angle):
     angle += 90
     angle = np.deg2rad(angle)
     return np.sin(2 * np.pi * (X * np.cos(angle) + Y * np.sin(angle)) / wavelength)
 
 
-def interp_to_polar(pspec_2d, wavenumbers, thetas, theta_bins=(0, 180), theta_step=1, wnum_range=(0.2, 2), wnum_step=0.01):
-    """Interpolates power spectrum onto polar grid"""
+def interp_to_polar(pspec_2d, wavenumbers, thetas, theta_bins=(0, 180), theta_step=1, wnum_range=(0.2, 2),
+                    wnum_step=0.01):
+    """Interpolates power spectrum onto polar grid. not used currently"""
 
     # create values of theta and wavenumber at which to interpolate
     theta_bins_interp, theta_gridp = create_bins(theta_bins, theta_step)
@@ -154,8 +158,8 @@ def find_max(polar_pspec, wnum_vals, theta_vals):
 
 
 def apply_wnum_bounds(polar_pspec, wnum_vals, wnum_bins, wlen_range):
-    min_mask = (wnum_bins > 2*np.pi/wlen_range[1])[:-1]
-    max_mask = (wnum_bins < 2*np.pi/wlen_range[0])[1:]
+    min_mask = (wnum_bins > 2 * np.pi / wlen_range[1])[:-1]
+    max_mask = (wnum_bins < 2 * np.pi / wlen_range[0])[1:]
     mask = (min_mask & max_mask)
 
     return polar_pspec[:, mask], wnum_vals[mask]
@@ -204,7 +208,7 @@ def plot_2D_pspec(bandpassed_pspec, Lx, Ly, wavelength_contours=None):
     ylen = bandpassed_pspec.shape[0]
 
     fig2, ax2 = plt.subplots(1, 1)
-    # TODO change to pcolormesh?
+    # TODO change to pcolormesh? might be useful in search for maximum
     max_k = xlen // 2 * 2 * np.pi / Lx
     max_l = ylen // 2 * 2 * np.pi / Ly
     pixel_k = 2 * max_k / xlen
@@ -310,20 +314,6 @@ def plot_pspec_polar(wnum_bins, theta_bins, radial_pspec_array, scale='linear', 
     plt.ylabel(r'$\theta$')
 
 
-def create_latlon_cube():
-    n = 500
-    lat_bounds = [s.satellite_bottomleft[1], s.satellite_topright[1]]
-    lon_bounds = [s.satellite_bottomleft[0], s.satellite_topright[0]]
-    lat_coord = iris.coords.DimCoord(np.linspace(*lat_bounds, n), standard_name='latitude', units='degrees')
-    lon_coord = iris.coords.DimCoord(np.linspace(*lon_bounds, n), standard_name='longitude', units='degrees')
-    empty = iris.cube.Cube(np.empty((n, n)), dim_coords_and_dims=[(lat_coord, 0), (lon_coord, 1)])
-    new_cs = iris.coord_systems.GeogCS(iris.fileformats.pp.EARTH_RADIUS)
-    empty.coord(axis='x').coord_system = new_cs
-    empty.coord(axis='y').coord_system = new_cs
-
-    return empty
-
-
 def plot_wind(w_cube, u_cube, v_cube, step=25):
     fig, ax = plt.subplots(1, 1,
                            subplot_kw={'projection': ccrs.PlateCarree()}
@@ -344,6 +334,7 @@ def plot_wind(w_cube, u_cube, v_cube, step=25):
 
 
 if __name__ == '__main__':
+    # TODO clean and put in functions
     check_argv_num(sys.argv, 1, "(settings json file)")
     s = load_settings(sys.argv[1])
 
@@ -354,18 +345,18 @@ if __name__ == '__main__':
 
     w_cube, u_cube, v_cube = add_orography(orog_cube, w_cube, u_cube, v_cube)
 
-    w_single_level = cube_at_single_level(w_cube, s.map_height, coord='altitude', bottomleft=s.map_bottomleft, topright=s.map_topright)
+    w_single_level = cube_at_single_level(w_cube, s.map_height, coord='altitude', bottomleft=s.map_bottomleft,
+                                          topright=s.map_topright)
     u_single_level = cube_at_single_level(u_cube, s.map_height, bottomleft=s.map_bottomleft, topright=s.map_topright)
     v_single_level = cube_at_single_level(v_cube, s.map_height, bottomleft=s.map_bottomleft, topright=s.map_topright)
 
-    empty = create_latlon_cube()
+    empty = create_latlon_cube(s)
 
     orig = w_single_level.regrid(empty, iris.analysis.Linear())
     u_rot, v_rot = rotate_winds(u_single_level, v_single_level, empty.coord_system())
     u_rot = u_rot.regrid(empty, iris.analysis.Linear())
     v_rot = v_rot.regrid(empty, iris.analysis.Linear())
 
-    # TODO clean and put in functions
     plot_wind(orig, u_rot, v_rot)
 
     add_true_latlon_coords(w_cube, u_cube, v_cube, orog_cube)
@@ -394,12 +385,14 @@ if __name__ == '__main__':
 
     wnum_bin_width = 0.1
     theta_bin_width = 5
-    radial_pspec, wnum_bins, wnum_vals, theta_bins, theta_vals = make_radial_pspec(pspec_2d, wavenumbers, wnum_bin_width,
-                                                            thetas, theta_bin_width)
+    radial_pspec, wnum_bins, wnum_vals, theta_bins, theta_vals = make_radial_pspec(pspec_2d, wavenumbers,
+                                                                                   wnum_bin_width,
+                                                                                   thetas, theta_bin_width)
 
     # radial_pspec *= wnum_vals**2
 
-    bounded_polar_pspec, bounded_wnum_vals = apply_wnum_bounds(radial_pspec, wnum_vals, wnum_bins, (min_lambda, max_lambda))
+    bounded_polar_pspec, bounded_wnum_vals = apply_wnum_bounds(radial_pspec, wnum_vals, wnum_bins,
+                                                               (min_lambda, max_lambda))
     dominant_wnum, dominant_theta = find_max(bounded_polar_pspec, bounded_wnum_vals, theta_vals)
 
     plot_pspec_polar(wnum_bins, theta_bins, radial_pspec)
@@ -411,13 +404,9 @@ if __name__ == '__main__':
     plt.savefig('plots/polar_pspec.png', dpi=300)
     plt.show()
 
-    print(f'Dominant wavelength: {2*np.pi / dominant_wnum:.2f} km')
+    print(f'Dominant wavelength: {2 * np.pi / dominant_wnum:.2f} km')
     print(f'Dominant angle: {dominant_theta:.0f} deg from north')
 
     plot_radial_pspec(radial_pspec, wnum_vals, theta_bins, dominant_wnum)
 
     print('smoothing?')
-
-
-
-
