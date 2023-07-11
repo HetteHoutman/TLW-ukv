@@ -3,12 +3,10 @@ import sys
 import cartopy.crs as ccrs
 import iris
 import matplotlib.pyplot as plt
-import numpy as np
 from iris.analysis.cartography import rotate_winds
 
 import thermodynamics as th
-from cube_processing import read_variable, check_level_heights, add_orography
-from fourier_analysis import create_latlon_cube
+from cube_processing import read_variable, check_level_heights, add_orography, create_latlon_cube
 from met_fns import uv_to_spddir, N_squared, scorer_param
 from miscellaneous import convert_to_ukv_coords, index_selector, load_settings
 from plot_profile_from_txt import plot_profile
