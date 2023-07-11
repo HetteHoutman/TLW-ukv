@@ -62,8 +62,7 @@ if __name__ == '__main__':
                                          p_theta_cube.data[:, lat_index, lon_index])
 
     # rotate winds
-    empty = create_latlon_cube(s)
-    u_rot, v_rot = rotate_winds(u_cube, v_cube, empty.coord_system())
+    u_rot, v_rot = rotate_winds(u_cube, v_cube, iris.coord_systems.GeogCS(iris.fileformats.pp.EARTH_RADIUS))
 
     # create columns of speed and direction
     u_col = u_rot[:, lat_index, lon_index]
