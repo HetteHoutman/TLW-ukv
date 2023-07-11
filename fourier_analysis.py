@@ -6,163 +6,13 @@ import iris.plot as iplt
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
-import pyproj
-import scipy.interpolate
 from iris.analysis.cartography import rotate_winds
 from matplotlib import ticker, colors
-from scipy import stats
-from scipy.signal import argrelmax
 
 from cube_processing import read_variable, cube_at_single_level, add_orography, add_true_latlon_coords, \
     create_latlon_cube
+from fourier import *
 from miscellaneous import check_argv_num, load_settings
-
-
-def ideal_bandpass(ft, Lx, Ly, low, high):
-    _, _, dist_array, thetas = recip_space(Lx, Ly, ft.shape)
-
-    low_mask = (dist_array < low)
-    high_mask = (dist_array > high)
-    masked = np.ma.masked_where(low_mask | high_mask, ft)
-
-    return masked
-
-
-def recip_space(Lx, Ly, shape):
-    xlen = shape[1]
-    ylen = shape[0]
-
-    # np uses linear frequency f instead of angular frequency omega=2pi*f, so multiply by 2pi to get angular wavenum k
-    k = 2 * np.pi * np.fft.fftfreq(xlen, d=Lx / xlen)
-    l = 2 * np.pi * np.fft.fftfreq(ylen, d=Ly / ylen)
-
-    # do fft shift
-    K, L = np.meshgrid(np.roll(k, k.shape[0] // 2), np.roll(l, l.shape[0] // 2))
-
-    dist_array = np.sqrt(K ** 2 + L ** 2)
-    thetas = -np.rad2deg(np.arctan2(K, L)) + 180
-    thetas %= 180
-    return K, L, dist_array, thetas
-
-
-def extract_distances(lats, lons):
-    g = pyproj.Geod(ellps='WGS84')
-    _, _, Lx = g.inv(lons[0], lats[lats.shape[0] // 2],
-                     lons[-1], lats[lats.shape[0] // 2])
-    _, _, Ly = g.inv(lons[lons.shape[0] // 2], lats[0],
-                     lons[lons.shape[0] // 2], lats[-1])
-
-    return Lx / 1000, Ly / 1000
-
-
-def create_bins(range, bin_width):
-    bins = np.linspace(range[0], range[1], int(np.ceil((range[1] - range[0]) / bin_width) + 1))
-    vals = 0.5 * (bins[1:] + bins[:-1])
-    return bins, vals
-
-
-def stripey_test(orig_shape, Lx, Ly, wavelens, angles):
-    x = np.linspace(-Lx / 2, Lx / 2, orig_shape[1])
-    y = np.linspace(-Ly / 2, Ly / 2, orig_shape[0])
-    X, Y = np.meshgrid(x, y)
-    total = np.zeros(X.shape)
-
-    for wavelen, angle in zip(wavelens, angles):
-        total += make_stripes(X, Y, wavelen, angle)
-
-    # this ensures the stripes are roughly in the same range as the input data
-    middle = (orig.max() + orig.min()) / 2
-    total *= (orig.max() - orig.min()) / (total.max() - total.min())
-    total += middle
-
-    return total
-
-
-def make_radial_pspec(pspec_2d: np.ma.masked_array, wavenumbers, wavenumber_bin_width, thetas, theta_bin_width):
-    wnum_bins, wnum_vals = create_bins((0, wavenumbers.max()), wavenumber_bin_width)
-    theta_ranges, theta_vals = create_bins((-theta_bin_width / 2, 180 - theta_bin_width / 2), theta_bin_width)
-    thetas_redefined = thetas.copy()
-    thetas_redefined[(180 - theta_bin_width / 2 <= thetas_redefined) & (thetas_redefined < 180)] -= 180
-    radial_pspec_array = []
-
-    for i in range(len(theta_ranges) - 1):
-        low_mask = thetas_redefined >= theta_ranges[i]
-        high_mask = thetas_redefined < theta_ranges[i + 1]
-        mask = (low_mask & high_mask)
-
-        radial_pspec, _, _ = stats.binned_statistic(wavenumbers[mask].flatten(), pspec_2d.data[mask].flatten(),
-                                                    statistic="mean",
-                                                    bins=wnum_bins)
-        radial_pspec *= np.pi * (wnum_bins[1:] ** 2 - wnum_bins[:-1] ** 2) * np.deg2rad(theta_bin_width)
-        radial_pspec_array.append(radial_pspec)
-
-    return np.array(radial_pspec_array), wnum_bins, wnum_vals, theta_ranges, theta_vals
-
-
-def make_angular_pspec(pspec_2d: np.ma.masked_array, thetas, theta_bin_width, wavelengths, wavelength_ranges):
-    # TODO change pspec_2d to normal array not masked, as this is not needed
-    # TODO get rid of this function? not needed anymore
-    theta_bins, theta_vals = create_bins((-theta_bin_width / 2, 180 - theta_bin_width / 2), theta_bin_width)
-    thetas_redefined = thetas.copy()
-    thetas_redefined[(180 - theta_bin_width / 2 <= thetas_redefined) & (thetas_redefined < 180)] -= 180
-    ang_pspec_array = []
-    for i in range(len(wavelength_ranges) - 1):
-        low_mask = wavelengths >= wavelength_ranges[i]
-        high_mask = wavelengths < wavelength_ranges[i + 1]
-        mask = (low_mask & high_mask)
-
-        ang_pspec, _, _ = stats.binned_statistic(thetas_redefined[mask].flatten(), pspec_2d.data[mask].flatten(),
-                                                 statistic="mean",
-                                                 bins=theta_bins)
-        ang_pspec *= np.deg2rad(theta_bin_width) * (
-                (2 * np.pi / wavelength_ranges[i]) ** 2 - (2 * np.pi / wavelength_ranges[i + 1]) ** 2
-        )
-        ang_pspec_array.append(ang_pspec)
-
-    return ang_pspec_array, theta_vals
-
-
-def make_stripes(X, Y, wavelength, angle):
-    angle += 90
-    angle = np.deg2rad(angle)
-    return np.sin(2 * np.pi * (X * np.cos(angle) + Y * np.sin(angle)) / wavelength)
-
-
-def interp_to_polar(pspec_2d, wavenumbers, thetas, theta_bins=(0, 180), theta_step=1, wnum_range=(0.2, 2),
-                    wnum_step=0.01):
-    """Interpolates power spectrum onto polar grid. not used currently"""
-
-    # create values of theta and wavenumber at which to interpolate
-    theta_bins_interp, theta_gridp = create_bins(theta_bins, theta_step)
-    wnum_bins_interp, wavenumber_gridp = create_bins(wnum_range, wnum_step)
-    meshed_polar = np.meshgrid(wavenumber_gridp, theta_gridp)
-
-    points = np.array([[k, l] for k, l in zip(wavenumbers.flatten(), thetas.flatten())])
-    xi = np.array([[w, t] for w, t in zip(meshed_polar[0].flatten(), meshed_polar[1].flatten())])
-    values = pspec_2d.flatten()
-
-    interp_values = scipy.interpolate.griddata(points, values.data, xi, method='linear')
-
-    grid = xi.reshape(meshed_polar[0].shape[0], meshed_polar[0].shape[1], 2)
-
-    return wnum_bins_interp, theta_bins_interp, grid, interp_values.reshape(meshed_polar[0].shape)
-
-
-def find_max(polar_pspec, wnum_vals, theta_vals):
-    meshed_polar = np.meshgrid(wnum_vals, theta_vals)
-    dom_theta_idx, dom_wnums_idx = argrelmax(polar_pspec)
-    max_idx = np.nanargmax(polar_pspec)
-    #
-    return meshed_polar[0].flatten()[max_idx], meshed_polar[1].flatten()[max_idx]
-    # return wnum_vals[dom_wnums_idx], theta_vals[dom_theta_idx]
-
-
-def apply_wnum_bounds(polar_pspec, wnum_vals, wnum_bins, wlen_range):
-    min_mask = (wnum_bins > 2 * np.pi / wlen_range[1])[:-1]
-    max_mask = (wnum_bins < 2 * np.pi / wlen_range[0])[1:]
-    mask = (min_mask & max_mask)
-
-    return polar_pspec[:, mask], wnum_vals[mask]
 
 
 def filtered_inv_plot(img, filtered_ft, Lx, Ly, latlon=None, inverse_fft=True):
@@ -343,7 +193,7 @@ if __name__ == '__main__':
     v_cube = read_variable(s.reg_file, 3, s.h).regrid(w_cube, iris.analysis.Linear())
     orog_cube = read_variable(s.orog_file, 33, s.orog_h)
 
-    w_cube, u_cube, v_cube = add_orography(orog_cube, w_cube, u_cube, v_cube)
+    add_orography(orog_cube, w_cube, u_cube, v_cube)
 
     w_single_level = cube_at_single_level(w_cube, s.map_height, coord='altitude', bottomleft=s.map_bottomleft,
                                           topright=s.map_topright)
@@ -367,7 +217,7 @@ if __name__ == '__main__':
     K, L, wavenumbers, thetas = recip_space(Lx, Ly, orig.shape)
     wavelengths = 2 * np.pi / wavenumbers
 
-    # orig = stripey_test(orig.shape, Lx, Ly, [10, 5], [15, 135])
+    # orig = stripey_test(orig, Lx, Ly, [10, 5], [15, 135])
 
     ft = np.fft.fft2(orig)
     shifted_ft = np.fft.fftshift(ft)
@@ -381,13 +231,13 @@ if __name__ == '__main__':
 
     # TODO check if this is mathematically the right way of calculating pspec
     pspec_2d = np.ma.masked_where(bandpassed.mask, abs(shifted_ft) ** 2)
-    plot_2D_pspec(pspec_2d, Lx, Ly, wavelength_contours=[5, 10, 35])
+    plot_2D_pspec(pspec_2d.data, Lx, Ly, wavelength_contours=[5, 10, 35])
 
     wnum_bin_width = 0.1
     theta_bin_width = 5
-    radial_pspec, wnum_bins, wnum_vals, theta_bins, theta_vals = make_radial_pspec(pspec_2d, wavenumbers,
-                                                                                   wnum_bin_width,
-                                                                                   thetas, theta_bin_width)
+    # noinspection PyTupleAssignmentBalance
+    radial_pspec, wnum_bins, wnum_vals, theta_bins, theta_vals = make_polar_pspec(pspec_2d, wavenumbers, wnum_bin_width,
+                                                                                  thetas, theta_bin_width)
 
     # radial_pspec *= wnum_vals**2
 
