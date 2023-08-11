@@ -1,10 +1,10 @@
 import sys
 
-import iris.coords
 import iris.plot as iplt
 import matplotlib.cm as mpl_cm
 import matplotlib.pyplot as plt
 import os
+import cartopy.crs as ccrs
 
 import thermodynamics as th
 from cube_processing import *
@@ -103,6 +103,7 @@ def plot_xsect(w_xsect, theta_xsect, RH_xsect, max_height=5000, cmap="brewer_PuO
     theta_con = iplt.contour(theta_xsect, colors='k', linestyles='--', coords=coords)
     RH_con = iplt.contourf(RH_xsect, levels=[RH_level, 1], colors='none', linestyles='none', coords=coords, hatches=['..'])
 
+    # TODO check whether this can be done with iris.plot.orography_at_points
     orog = w_xsect.coord('surface_altitude').points
     x = w_xsect.coord('distance_from_start').points
     plt.fill_between(x, orog, where=orog > 0, color='k', interpolate=True)
