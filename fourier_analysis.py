@@ -165,7 +165,6 @@ def plot_pspec_polar(wnum_bins, theta_bins, radial_pspec_array, scale='linear', 
     plt.vlines(2 * np.pi / min_lambda, theta_bins[0], theta_bins[-1], 'k', linestyles='-.')
     plt.vlines(2 * np.pi / max_lambda, theta_bins[0], theta_bins[-1], 'k', linestyles='-.')
 
-    plt.colorbar()
     plt.xlabel(r"$|\mathbf{k}|$" + ' / ' + r"$\rm{km}^{-1}$")
     plt.ylabel(r'$\theta$')
 
