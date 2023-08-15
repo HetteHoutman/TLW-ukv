@@ -13,7 +13,7 @@ from matplotlib import ticker, colors
 from cube_processing import read_variable, cube_at_single_level, add_orography, add_true_latlon_coords, \
     create_latlon_cube
 from fourier import *
-from miscellaneous import check_argv_num, load_settings
+from miscellaneous import check_argv_num, load_settings, get_bounds
 
 
 def filtered_inv_plot(img, filtered_ft, Lx, Ly, latlon=None, inverse_fft=True):
@@ -189,11 +189,13 @@ def plot_wind(w_cube, u_cube, v_cube, step=25):
 
 if __name__ == '__main__':
     # TODO clean and put in functions
-    check_argv_num(sys.argv, 1, "(settings json file)")
+    check_argv_num(sys.argv, 2, "(settings, region json files)")
     s = load_settings(sys.argv[1])
+    sat_bl, sat_tr, map_bl, map_tr = get_bounds(sys.argv[2], '/home/users/sw825517/Documents/tephiplot/regions/')
+    datetime = f'{s.year}-{s.month}-{s.day}_{s.h}'
 
-    if not os.path.exists('plots/' + str(sys.argv[1][9:-5])):
-        os.makedirs('plots/' + str(sys.argv[1][9:-5]))
+    if not os.path.exists('plots/' + datetime):
+        os.makedirs('plots/' + datetime)
 
     w_cube = read_variable(s.reg_file, 150, s.h)
     u_cube = read_variable(s.reg_file, 2, s.h).regrid(w_cube, iris.analysis.Linear())
@@ -202,12 +204,11 @@ if __name__ == '__main__':
 
     add_orography(orog_cube, w_cube, u_cube, v_cube)
 
-    w_single_level = cube_at_single_level(w_cube, s.map_height, coord='altitude', bottomleft=s.map_bottomleft,
-                                          topright=s.map_topright)
-    u_single_level = cube_at_single_level(u_cube, s.map_height, bottomleft=s.map_bottomleft, topright=s.map_topright)
-    v_single_level = cube_at_single_level(v_cube, s.map_height, bottomleft=s.map_bottomleft, topright=s.map_topright)
+    w_single_level = cube_at_single_level(w_cube, s.map_height, coord='altitude', bottomleft=map_bl, topright=map_tr)
+    u_single_level = cube_at_single_level(u_cube, s.map_height, bottomleft=map_bl, topright=map_tr)
+    v_single_level = cube_at_single_level(v_cube, s.map_height, bottomleft=map_bl, topright=map_tr)
 
-    empty = create_latlon_cube(s)
+    empty = create_latlon_cube(sat_bl, sat_tr)
 
     orig = w_single_level.regrid(empty, iris.analysis.Linear())
     u_rot, v_rot = rotate_winds(u_single_level, v_single_level, empty.coord_system())

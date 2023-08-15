@@ -18,6 +18,7 @@ if __name__ == '__main__':
     # filename = indir + 'prodm_op_ukv_20150414_09_004.pp'
     filename = s.reg_file
 
+    # TODO use json parameters here and in the other profile and tephi files
     year = filename[-18:-14]
     month = filename[-14:-12]
     day = filename[-12:-10]
