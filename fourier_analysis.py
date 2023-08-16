@@ -37,6 +37,7 @@ def plot_wind(w_cube, u_cube, v_cube, step=25):
 
 if __name__ == '__main__':
     # TODO clean and put in functions
+    # TODO look for pp files automatically based on json file dates
     check_argv_num(sys.argv, 2, "(settings, region json files)")
     s = load_settings(sys.argv[1])
     sat_bl, sat_tr, map_bl, map_tr = get_bounds(sys.argv[2], '/home/users/sw825517/Documents/tephiplot/regions/')

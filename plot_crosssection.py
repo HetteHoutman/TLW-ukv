@@ -149,6 +149,7 @@ def load_and_process(reg_filename, orog_filename):
 
 
 if __name__ == '__main__':
+    # TODO decide what to do with new settings json files, automatically detect pp and sat files? what about gc + region?
     # check correct number of cmd arguments
     check_argv_num(sys.argv, 1, message='(settings json file)')
 
