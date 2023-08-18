@@ -13,10 +13,10 @@ from cube_processing import read_variable, cube_at_single_level, add_orography, 
     create_latlon_cube
 from fourier import *
 from fourier_plot import plot_pspec_polar, plot_radial_pspec, plot_2D_pspec, filtered_inv_plot
-from miscellaneous import check_argv_num, load_settings, get_bounds
+from miscellaneous import check_argv_num, load_settings, get_region_var
 
 
-def plot_wind(w_cube, u_cube, v_cube, step=25):
+def plot_wind(w_cube, u_cube, v_cube, step=25, title='title'):
     fig, ax = plt.subplots(1, 1,
                            subplot_kw={'projection': ccrs.PlateCarree()}
                            )
@@ -32,7 +32,8 @@ def plot_wind(w_cube, u_cube, v_cube, step=25):
                  )
     # plt.xlim(lon_bounds)
     # plt.ylim(lat_bounds)
-    plt.show()
+    plt.title(title)
+
 
 
 if __name__ == '__main__':
@@ -40,8 +41,13 @@ if __name__ == '__main__':
     # TODO look for pp files automatically based on json file dates
     check_argv_num(sys.argv, 2, "(settings, region json files)")
     s = load_settings(sys.argv[1])
-    sat_bl, sat_tr, map_bl, map_tr = get_bounds(sys.argv[2], '/home/users/sw825517/Documents/tephiplot/regions/')
     datetime = f'{s.year}-{s.month}-{s.day}_{s.h}'
+
+    sat_bounds = get_region_var("sat_bounds", sys.argv[2], '/home/users/sw825517/Documents/tephiplot/regions/')
+    sat_bl, sat_tr = sat_bounds[:2], sat_bounds[2:]
+
+    map_bounds = get_region_var("map_bounds", sys.argv[2], '/home/users/sw825517/Documents/tephiplot/regions/')
+    map_bl, map_tr = map_bounds[:2], map_bounds[2:]
 
     if not os.path.exists('plots/' + datetime):
         os.makedirs('plots/' + datetime)
@@ -49,6 +55,8 @@ if __name__ == '__main__':
     save_path = f'plots/{datetime}/{sys.argv[2]}'
     if not os.path.exists(save_path):
         os.makedirs(save_path)
+
+    my_title = f'{datetime}_{sys.argv[2]}'
 
     w_cube = read_variable(s.reg_file, 150, s.h)
     u_cube = read_variable(s.reg_file, 2, s.h).regrid(w_cube, iris.analysis.Linear())
@@ -68,7 +76,8 @@ if __name__ == '__main__':
     u_rot = u_rot.regrid(empty, iris.analysis.Linear())
     v_rot = v_rot.regrid(empty, iris.analysis.Linear())
 
-    plot_wind(orig, u_rot, v_rot)
+    plot_wind(orig, u_rot, v_rot, title=my_title)
+    plt.show()
 
     add_true_latlon_coords(w_cube, u_cube, v_cube, orog_cube)
 
@@ -86,7 +95,7 @@ if __name__ == '__main__':
     min_lambda = 3
     max_lambda = 20
     bandpassed = ideal_bandpass(shifted_ft, Lx, Ly, 2 * np.pi / max_lambda, 2 * np.pi / min_lambda)
-    filtered_inv_plot(orig, bandpassed, Lx, Ly, inverse_fft=True
+    filtered_inv_plot(orig, bandpassed, Lx, Ly, inverse_fft=True, title=my_title
                       # latlon=area_extent
                       )
     plt.savefig(save_path + '/sat_plot.png', dpi=300)
@@ -94,7 +103,7 @@ if __name__ == '__main__':
 
     # TODO check if this is mathematically the right way of calculating pspec
     pspec_2d = np.ma.masked_where(bandpassed.mask, abs(shifted_ft) ** 2)
-    plot_2D_pspec(pspec_2d.data, Lx, Ly, wavelength_contours=[5, 10, 35])
+    plot_2D_pspec(pspec_2d.data, Lx, Ly, wavelength_contours=[5, 10, 35], title=my_title)
     plt.savefig(save_path + '/2d_pspec.png', dpi=300)
     plt.show()
 
@@ -110,12 +119,12 @@ if __name__ == '__main__':
                                                                (min_lambda, max_lambda))
     dominant_wnum, dominant_theta = find_max(bounded_polar_pspec, bounded_wnum_vals, theta_vals)
 
-    plot_pspec_polar(wnum_bins, theta_bins, radial_pspec)
+    plot_pspec_polar(wnum_bins, theta_bins, radial_pspec, title=my_title)
     plt.scatter(dominant_wnum, dominant_theta, marker='x', color='k', s=100, zorder=100)
     plt.show()
 
     plot_pspec_polar(wnum_bins, theta_bins, radial_pspec, scale='log', xlim=(0.05, 4.5), vmin=bounded_polar_pspec.min(),
-                     vmax=bounded_polar_pspec.max())
+                     vmax=bounded_polar_pspec.max(), title=my_title)
     plt.scatter(dominant_wnum, dominant_theta, marker='x', color='k', s=100, zorder=100)
     plt.savefig(save_path + '/polar_pspec.png', dpi=300)
     plt.show()
@@ -123,7 +132,7 @@ if __name__ == '__main__':
     print(f'Dominant wavelength: {2 * np.pi / dominant_wnum:.2f} km')
     print(f'Dominant angle: {dominant_theta:.0f} deg from north')
 
-    plot_radial_pspec(radial_pspec, wnum_vals, theta_bins, dominant_wnum)
+    plot_radial_pspec(radial_pspec, wnum_vals, theta_bins, dominant_wnum, title=my_title)
     plt.savefig(save_path + '/radial_pspec.png', dpi=300)
     plt.show()
 
