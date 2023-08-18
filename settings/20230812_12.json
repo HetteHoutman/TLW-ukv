@@ -1,0 +1,18 @@
+{"reg_file" : "/home/users/sw825517/Documents/ukv_data/prodm_op_ukv_20230812_12_000.pp",
+  "orog_file" : "/home/users/sw825517/Documents/ukv_data/prods_op_ukv_20230812_12_000.pp",
+  "h" : 12,
+  "day" : 12,
+  "month" : 8,
+  "year" : 2023,
+  "orog_h" : 12,
+  "map_bottomleft" : [-11.75, 51],
+  "map_topright" : [-4.25, 56],
+  "map_height" : 2000,
+  "max_height" : 5000,
+  "n" : 200,
+  "RH_level" : 0.95,
+  "cmap" : "brewer_PuOr_11",
+  "sat_file" : "C:\\Users\\sw825517\\OneDrive - University of Reading\\research\\code\\eumetsat\\data\\MSG3-SEVI-MSG15-0100-NA-20230812121242.010000000Z-NA\\MSG3-SEVI-MSG15-0100-NA-20230812121242.010000000Z-NA.nat",
+  "satellite_bottomleft" : [-10.5, 51.5],
+  "satellite_topright" : [-5, 55.5]
+}
