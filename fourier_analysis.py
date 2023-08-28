@@ -56,7 +56,7 @@ if __name__ == '__main__':
     if not os.path.exists(save_path):
         os.makedirs(save_path)
 
-    my_title = f'{datetime}_{sys.argv[2]}'
+    my_title = f'{datetime}_{sys.argv[2]}_ukv'
 
     w_cube = read_variable(s.reg_file, 150, s.h)
     u_cube = read_variable(s.reg_file, 2, s.h).regrid(w_cube, iris.analysis.Linear())
@@ -77,7 +77,9 @@ if __name__ == '__main__':
     v_rot = v_rot.regrid(empty, iris.analysis.Linear())
 
     plot_wind(orig, u_rot, v_rot, title=my_title)
-    plt.show()
+    plt.savefig(save_path + '/wind_plot.png', dpi=300)
+    # plt.show()
+    plt.figure()
 
     add_true_latlon_coords(w_cube, u_cube, v_cube, orog_cube)
 
@@ -99,13 +101,15 @@ if __name__ == '__main__':
                       # latlon=area_extent
                       )
     plt.savefig(save_path + '/sat_plot.png', dpi=300)
-    plt.show()
+    # plt.show()
+    plt.figure()
 
     # TODO check if this is mathematically the right way of calculating pspec
     pspec_2d = np.ma.masked_where(bandpassed.mask, abs(shifted_ft) ** 2)
     plot_2D_pspec(pspec_2d.data, Lx, Ly, wavelength_contours=[5, 10, 35], title=my_title)
     plt.savefig(save_path + '/2d_pspec.png', dpi=300)
-    plt.show()
+    # plt.show()
+    plt.figure()
 
     wnum_bin_width = 0.1
     theta_bin_width = 5
@@ -121,19 +125,22 @@ if __name__ == '__main__':
 
     plot_pspec_polar(wnum_bins, theta_bins, radial_pspec, title=my_title)
     plt.scatter(dominant_wnum, dominant_theta, marker='x', color='k', s=100, zorder=100)
-    plt.show()
+    # plt.show()
+    plt.figure()
 
     plot_pspec_polar(wnum_bins, theta_bins, radial_pspec, scale='log', xlim=(0.05, 4.5), vmin=bounded_polar_pspec.min(),
                      vmax=bounded_polar_pspec.max(), title=my_title)
     plt.scatter(dominant_wnum, dominant_theta, marker='x', color='k', s=100, zorder=100)
     plt.savefig(save_path + '/polar_pspec.png', dpi=300)
-    plt.show()
+    # plt.show()
+    plt.figure()
 
     print(f'Dominant wavelength: {2 * np.pi / dominant_wnum:.2f} km')
     print(f'Dominant angle: {dominant_theta:.0f} deg from north')
 
     plot_radial_pspec(radial_pspec, wnum_vals, theta_bins, dominant_wnum, title=my_title)
     plt.savefig(save_path + '/radial_pspec.png', dpi=300)
-    plt.show()
+    # plt.show()
+    plt.figure()
 
     print('smoothing?')
