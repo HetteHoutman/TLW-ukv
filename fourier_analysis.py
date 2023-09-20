@@ -111,7 +111,7 @@ if __name__ == '__main__':
     # plt.show()
     plt.figure()
 
-    wnum_bin_width = 0.1
+    wnum_bin_width = 0.05
     theta_bin_width = 5
     # noinspection PyTupleAssignmentBalance
     radial_pspec, wnum_bins, wnum_vals, theta_bins, theta_vals = make_polar_pspec(pspec_2d, wavenumbers, wnum_bin_width,
