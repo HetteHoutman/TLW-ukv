@@ -94,8 +94,8 @@ if __name__ == '__main__':
     ft = np.fft.fft2(orig)
     shifted_ft = np.fft.fftshift(ft)
 
-    min_lambda = 3
-    max_lambda = 20
+    min_lambda = 4
+    max_lambda = 35
     bandpassed = ideal_bandpass(shifted_ft, Lx, Ly, 2 * np.pi / max_lambda, 2 * np.pi / min_lambda)
     filtered_inv_plot(orig, bandpassed, Lx, Ly, inverse_fft=True, title=my_title
                       # latlon=area_extent
@@ -123,13 +123,14 @@ if __name__ == '__main__':
                                                                (min_lambda, max_lambda))
     dominant_wnum, dominant_theta = find_max(bounded_polar_pspec, bounded_wnum_vals, theta_vals)
 
-    plot_pspec_polar(wnum_bins, theta_bins, radial_pspec, title=my_title)
+    plot_pspec_polar(wnum_bins, theta_bins, radial_pspec, title=my_title, min_lambda=min_lambda, max_lambda=max_lambda)
     plt.scatter(dominant_wnum, dominant_theta, marker='x', color='k', s=100, zorder=100)
     # plt.show()
     plt.figure()
 
-    plot_pspec_polar(wnum_bins, theta_bins, radial_pspec, scale='log', xlim=(0.05, 4.5), vmin=bounded_polar_pspec.min(),
-                     vmax=bounded_polar_pspec.max(), title=my_title)
+    plot_pspec_polar(wnum_bins, theta_bins, radial_pspec, scale='log', xlim=(0.05, 4.5),
+                     vmin=np.nanmin(bounded_polar_pspec), vmax=np.nanmax(bounded_polar_pspec),
+                     title=my_title, min_lambda=min_lambda, max_lambda=max_lambda)
     plt.scatter(dominant_wnum, dominant_theta, marker='x', color='k', s=100, zorder=100)
     plt.savefig(save_path + '/polar_pspec.png', dpi=300)
     # plt.show()
