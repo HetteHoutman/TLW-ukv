@@ -2,7 +2,8 @@ import os
 import sys
 
 import pandas as pd
-df = pd.read_excel(sys.argv[1], header=1).reset_index(drop=True)
+
+df = pd.read_excel(sys.argv[1], index_col=[0,1])
 
 for idx, row in df.iterrows():
-    os.system(f"python fourier_analysis.py ../tephiplot/settings/{row.date.year}{row.date.month:02d}{row.date.day:02d}_{row.hour}.json {row.region}")
+    os.system(f"python fourier_analysis.py ../tephiplot/settings/{idx[0][:4]}{idx[0][5:7]}{idx[0][8:10]}_{row.hour}.json {idx[1]}")
