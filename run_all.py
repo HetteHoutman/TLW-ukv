@@ -2,7 +2,6 @@ import os
 import sys
 
 import pandas as pd
-
 df = pd.read_excel(sys.argv[1], header=1).reset_index(drop=True)
 
 for idx, row in df.iterrows():
