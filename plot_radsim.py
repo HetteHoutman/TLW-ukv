@@ -22,7 +22,7 @@ if __name__ == '__main__':
         print('Error: netCDF file must contain lat and lon values')
         sys.exit(1)
 
-    refl = np.rot90(output.variables['refl'][:].reshape(621, 808, order='F'))
+    refl = output.variables['refl'][:].reshape(808, 621)[::-1]
     plt.imshow(refl, cmap='gray')
     plt.colorbar()
     plt.title('Reflectance')
