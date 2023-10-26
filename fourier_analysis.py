@@ -257,7 +257,6 @@ if __name__ == '__main__':
     print(f'Dominant angle by ellipse method: {dominant_theta:.0f} deg from north')
 
     # save to csv with results
-    # TODO add radsim results
     if not test:
         df = pd.read_excel('../sat_vs_ukv_results.xlsx', index_col=[0, 1])
         if not use_sim_sat:
