@@ -14,10 +14,12 @@ import iris
 from matplotlib import colors
 from skimage.transform import rotate
 
-from cube_processing import read_variable, cube_at_single_level, create_latlon_cube
+from cube_processing import read_variable, cube_at_single_level, create_latlon_cube, cube_from_array_and_cube
 from fourier import *
 from fourier_plot import plot_pspec_polar, plot_radial_pspec, plot_2D_pspec, filtered_inv_plot, plot_corr
 from miscellaneous import check_argv_num, load_settings, get_region_var
+from prepare_radsim_array import get_refl
+from psd import periodic_smooth_decomp
 
 
 def plot_wind(w_cube, u_cube, v_cube, empty, step=25, title='title'):
@@ -57,7 +59,7 @@ def get_sat_map_bltr(region, region_root='/home/users/sw825517/Documents/tephipl
     return satellite_bottomleft, satellite_topright, map_bottomleft, map_topright
 
 
-def make_title_and_save_path(datetime, region, data_source_string, test, k2, smoothed, mag_filter):
+def make_title_and_save_path(datetime, region, data_source_string, test, k2, smoothed, mag_filter, use_sim_sat):
     my_title = f'{datetime}_{region}_{data_source_string}'
 
     save_path = f'plots/{datetime}/{region}/'
@@ -71,6 +73,10 @@ def make_title_and_save_path(datetime, region, data_source_string, test, k2, smo
 
     if not os.path.exists(save_path):
         os.makedirs(save_path)
+
+    if use_sim_sat:
+        save_path += 'radsim_'
+        my_title += '_radsim'
 
     if k2:
         save_path += 'k2_'
@@ -111,11 +117,11 @@ if __name__ == '__main__':
     # TODO look for pp files automatically based on json file dates
 
     # options
-    k2 = False
+    k2 = True
     smoothed = True
     mag_filter = False
-    test = True
-    use_sim_sat = False
+    test = False
+    use_sim_sat = True
 
     min_lambda = 4
     max_lambda = 30
@@ -123,12 +129,17 @@ if __name__ == '__main__':
     theta_bin_width = 5
 
     # settings
-    check_argv_num(sys.argv, 2, "(settings, region json files)")
+    if not use_sim_sat:
+        check_argv_num(sys.argv, 2, "(settings, region json files)")
+    else:
+        check_argv_num(sys.argv, 3, "(settings, region json, radsim nc files")
     s = load_settings(sys.argv[1])
     datetime = get_datetime_from_settings(s)
     region = sys.argv[2]
+    if use_sim_sat:
+        nc_file = sys.argv[3]
     sat_bl, sat_tr, map_bl, map_tr = get_sat_map_bltr(region)
-    my_title, save_path = make_title_and_save_path(datetime, region, 'ukv', test, k2, smoothed, mag_filter)
+    my_title, save_path = make_title_and_save_path(datetime, region, 'ukv', test, k2, smoothed, mag_filter, use_sim_sat)
 
     # load data
     empty_latlon = create_latlon_cube(sat_bl, sat_tr, n=501)
@@ -153,7 +164,16 @@ if __name__ == '__main__':
 
     # else use simulated satellite imagery
     else:
-        pass
+        refl = get_refl(nc_file)
+        surf_t = read_variable(s.file, 24, s.h)
+
+        refl_cube = cube_from_array_and_cube(refl[::-1], surf_t, unit=1, std_name='toa_bidirectional_reflectance')
+
+        empty = create_latlon_cube(sat_bl, sat_tr, n=501)
+        refl_regrid = refl_cube.regrid(empty, iris.analysis.Linear())
+        Lx, Ly = extract_distances(refl_regrid.coords('latitude')[0].points, refl_regrid.coords('longitude')[0].points)
+        orig = refl_regrid.data[::-1]
+        orig, smooth = periodic_smooth_decomp(orig)
 
     # get reciprocal space coordinates
     K, L, wavenumbers, thetas = recip_space(Lx, Ly, orig.shape)
@@ -237,8 +257,14 @@ if __name__ == '__main__':
     print(f'Dominant angle by ellipse method: {dominant_theta:.0f} deg from north')
 
     # save to csv with results
+    # TODO add radsim results
     if not test:
         df = pd.read_excel('../sat_vs_ukv_results.xlsx', index_col=[0, 1])
-        df.loc[(f'{s.year}-{s.month:02d}-{s.day:02d}', region), 'ukv_lambda_ellipse'] = dominant_wlen
-        df.loc[(f'{s.year}-{s.month:02d}-{s.day:02d}', region), 'ukv_theta_ellipse'] = dominant_theta
+        if not use_sim_sat:
+            df.loc[(f'{s.year}-{s.month:02d}-{s.day:02d}', region), 'ukv_lambda_ellipse'] = dominant_wlen
+            df.loc[(f'{s.year}-{s.month:02d}-{s.day:02d}', region), 'ukv_theta_ellipse'] = dominant_theta
+        else:
+            df.loc[(f'{s.year}-{s.month:02d}-{s.day:02d}', region), 'ukv_radsim_lambda_ellipse'] = dominant_wlen
+            df.loc[(f'{s.year}-{s.month:02d}-{s.day:02d}', region), 'ukv_radsim_theta_ellipse'] = dominant_theta
+
         df.to_excel('../sat_vs_ukv_results.xlsx')
