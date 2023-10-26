@@ -1,23 +1,21 @@
 import sys
 
 import cartopy.crs as ccrs
+import iris
 import iris.cube
 import iris.plot as iplt
 import matplotlib as mpl
 import matplotlib.pyplot as plt
-import numpy as np
-import os
 import pandas as pd
 from astropy.convolution import convolve, Gaussian2DKernel
 from iris.analysis.cartography import rotate_winds
-import iris
 from matplotlib import colors
-from skimage.transform import rotate
 
 from cube_processing import read_variable, cube_at_single_level, create_latlon_cube, cube_from_array_and_cube
 from fourier import *
 from fourier_plot import plot_pspec_polar, plot_radial_pspec, plot_2D_pspec, filtered_inv_plot, plot_corr
-from miscellaneous import check_argv_num, load_settings, get_region_var
+from miscellaneous import check_argv_num, load_settings, get_datetime_from_settings, get_sat_map_bltr, \
+    make_title_and_save_path
 from prepare_radsim_array import get_refl
 from psd import periodic_smooth_decomp
 
@@ -46,71 +44,6 @@ def plot_wind(w_cube, u_cube, v_cube, empty, step=25, title='title'):
     plt.title(title)
     plt.savefig(save_path + 'wind_plot.png', dpi=300)
 
-def get_datetime_from_settings(settings):
-    return f'{settings.year}-{settings.month:02d}-{settings.day:02d}_{settings.h}'
-
-
-def get_sat_map_bltr(region, region_root='/home/users/sw825517/Documents/tephiplot/regions/'):
-    sat_bounds = get_region_var("sat_bounds", region, region_root)
-    satellite_bottomleft, satellite_topright = sat_bounds[:2], sat_bounds[2:]
-    map_bounds = get_region_var("map_bounds", region, region_root)
-    map_bottomleft, map_topright = map_bounds[:2], map_bounds[2:]
-
-    return satellite_bottomleft, satellite_topright, map_bottomleft, map_topright
-
-
-def make_title_and_save_path(datetime, region, data_source_string, test, k2, smoothed, mag_filter, use_sim_sat):
-    my_title = f'{datetime}_{region}_{data_source_string}'
-
-    save_path = f'plots/{datetime}/{region}/'
-
-    if not os.path.exists('plots/' + datetime):
-        os.makedirs('plots/' + datetime)
-
-    if test:
-        save_path = f'plots/test/'
-        my_title += '_test'
-
-    if not os.path.exists(save_path):
-        os.makedirs(save_path)
-
-    if use_sim_sat:
-        save_path += 'radsim_'
-        my_title += '_radsim'
-
-    if k2:
-        save_path += 'k2_'
-        my_title += '_k2'
-    if smoothed:
-        save_path += 'smoothed_'
-        my_title += '_smoothed'
-    if mag_filter:
-        save_path += 'magfiltered_'
-        my_title += '_magfiltered'
-
-    return my_title, save_path
-
-
-def find_corr_max(collapsed_correlation, K, L, wavelengths, thetas):
-
-    halfway = K.shape[1] // 2
-    test_idx = np.nanargmax(collapsed_correlation)
-    dom_K, dom_L = K[:, halfway:].flatten()[test_idx], L[:, halfway:].flatten()[test_idx]
-    dominant_wlen, dominant_theta = wavelengths[:, halfway:].flatten()[test_idx], thetas[:, halfway:].flatten()[test_idx]
-
-    return dominant_wlen, dominant_theta, dom_K, dom_L
-
-
-def get_ellipse_correlation(pspec_2d, thetas, ell_shape):
-
-    corr = correlate_ellipse(pspec_2d, thetas, ell_shape)
-    rot_left_half = rotate(corr[:, :corr.shape[1] // 2 + 1], 180)
-    collapsed_corr = corr[:, corr.shape[1] // 2:] + rot_left_half
-
-    # mask bottom half of k_x = 0 line as this is the same as the top half
-    collapsed_corr.mask[collapsed_corr.shape[0] // 2:, 0] = True
-
-    return collapsed_corr
 
 
 if __name__ == '__main__':
@@ -139,7 +72,7 @@ if __name__ == '__main__':
     if use_sim_sat:
         nc_file = sys.argv[3]
     sat_bl, sat_tr, map_bl, map_tr = get_sat_map_bltr(region)
-    my_title, save_path = make_title_and_save_path(datetime, region, 'ukv', test, k2, smoothed, mag_filter, use_sim_sat)
+    my_title, save_path = make_title_and_save_path(datetime, region, 'ukv', test, k2, smoothed, mag_filter, use_sim_sat=use_sim_sat)
 
     # load data
     empty_latlon = create_latlon_cube(sat_bl, sat_tr, n=501)
