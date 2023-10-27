@@ -1,3 +1,4 @@
+import os
 import sys
 
 import cartopy.crs as ccrs
@@ -18,10 +19,10 @@ from miscellaneous import check_argv_num, load_settings, get_datetime_from_setti
     make_title_and_save_path
 from prepare_radsim_array import get_refl
 from psd import periodic_smooth_decomp
+from regrid_and_save import regrid_10m_wind_and_append
 
 
 def plot_wind(w_cube, u_cube, v_cube, empty, step=25, title='title'):
-
     u_rot, v_rot = rotate_winds(u_cube, v_cube, empty.coord_system())
     u_rot = u_rot.regrid(empty, iris.analysis.Linear())
     v_rot = v_rot.regrid(empty, iris.analysis.Linear())
@@ -43,7 +44,126 @@ def plot_wind(w_cube, u_cube, v_cube, empty, step=25, title='title'):
     # plt.ylim(lat_bounds)
     plt.title(title)
     plt.savefig(save_path + 'wind_plot.png', dpi=300)
+    plt.close()
 
+
+def get_radsim_img(settings, datetime):
+    """
+    gets the simulated satellite imagery from radsim and prepares it for fourier analysis.
+    could probs divvy this up into functions too
+    Parameters
+    ----------
+    settings
+    datetime
+
+    Returns
+    -------
+
+    """
+    # this should be the radsim output netCDF4 file
+    nc_file_root = f"/home/users/sw825517/radsim/radsim-3.2/outputs"
+    nc_filename = f'{datetime}.nc'
+
+    # in case radsim has already run simulation
+    try:
+        refl = get_refl(nc_file_root + '/' + nc_filename)
+
+    # if not, then run radsim
+    except FileNotFoundError:
+        print('Radsim output .nc file not found: running radsim to create')
+        radsim_run_file = "/home/users/sw825517/radsim/radsim-3.2/src/scripts/radsim_run.py"
+
+        # run radsim_run.py with radsim_settings, so set radsim_settings accordingly
+        radsim_settings = {'config_file': f'{datetime}.cfg',
+                           'radsim_bin_dir': '/home/users/sw825517/radsim/radsim-3.2/bin/',
+                           'model_datafile': f'/home/users/sw825517/Documents/ukv_data/ukv_{datetime}_000.unpacked.pp',
+                           'model_filetype': 0,
+                           'rttov_coeffs_dir': '/home/users/sw825517/rttov13/rtcoef_rttov13/rttov13pred54L',
+                           'rttov_coeffs_options': '_o3co2',
+                           'rttov_sccld_dir': '/home/users/sw825517/rttov13/rtcoef_rttov13/cldaer_visir/',
+                           'platform': "msg",
+                           'satid': 3,
+                           'inst': "seviri",
+                           'channels': 1,
+                           'output_mode': 1,
+                           'addsolar': True,
+                           'ir_addclouds': True,
+                           'output_dir': nc_file_root,
+                           'output_file': nc_filename,
+                           'write_latlon': True}
+
+        # check whether unpacked pp file exists, if not then unpack packed pp file
+        if not os.path.isfile(radsim_settings['model_datafile']):
+            print('Unpacked .pp file does not exist, will try to create...')
+            packed_pp = f'/home/users/sw825517/Documents/ukv_data/ukv_{datetime}_000.pp'
+
+            # check whether packed pp exists
+            if os.path.isfile(packed_pp):
+                # ensure packed pp has 10m winds on correct grid
+                try:
+                    _ = read_variable(packed_pp, 3225, settings.h)
+                    _ = read_variable(packed_pp, 3226, settings.h)
+                except IndexError:
+                    print(f'packed .pp {packed_pp} does not have 10m winds on correct grid, regridding...')
+                    regrid_10m_wind_and_append(settings, packed_pp)
+
+                # unpack
+                os.system(f'/home/users/sw825517/Documents/ukv_data/pp_unpack {packed_pp}')
+                # rename unpacked pp so that it ends on '.pp'
+                os.system(
+                    f"cp /home/users/sw825517/Documents/ukv_data/ukv_{datetime}_000.pp.unpacked /home/users/sw825517/Documents/ukv_data/ukv_{datetime}_000.unpacked.pp")
+                os.system(f"rm /home/users/sw825517/Documents/ukv_data/ukv_{datetime}_000.pp.unpacked")
+
+            else:
+                print(f'packed .pp {packed_pp} not found')
+                sys.exit(1)
+
+        set_str = ''
+
+        for setting in radsim_settings:
+            set_str += f'--{setting} {radsim_settings[setting]} '
+
+        os.system(f"python {radsim_run_file} {set_str}")
+        refl = get_refl(nc_file_root + '/' + nc_filename)
+
+    # convert radsim reflectivity data from netCDF4 into iris cube, to regrid it onto a regular latlon grid
+    surf_t = read_variable(s.file, 24, s.h)
+    refl_cube = cube_from_array_and_cube(refl[::-1], surf_t, unit=1, std_name='toa_bidirectional_reflectance')
+    empty = create_latlon_cube(sat_bl, sat_tr, n=501)
+    refl_regrid = refl_cube.regrid(empty, iris.analysis.Linear())
+
+    x_dist, y_dist = extract_distances(refl_regrid.coords('latitude')[0].points, refl_regrid.coords('longitude')[0].points)
+    image = refl_regrid.data[::-1]
+    image, smooth = periodic_smooth_decomp(image)
+
+    return image, x_dist, y_dist
+
+
+def get_w_field_img(settings):
+    """
+    gets w field from ukv and prepares it for fourier analysis
+    Parameters
+    ----------
+    settings
+
+    Returns
+    -------
+
+    """
+    w_cube = read_variable(settings.file, 150, settings.h)
+    u_cube = read_variable(settings.file, 2, settings.h).regrid(w_cube, iris.analysis.Linear())
+    v_cube = read_variable(settings.file, 3, settings.h).regrid(w_cube, iris.analysis.Linear())
+    w_single_level, u_single_level, v_single_level = cube_at_single_level(s.map_height, w_cube, u_cube, v_cube,
+                                                                          bottomleft=sat_bl, topright=sat_tr)
+    w_field = w_single_level.regrid(empty_latlon, iris.analysis.Linear())
+
+    # plot wind comparison
+    plot_wind(w_field, u_single_level, v_single_level, empty_latlon, title=my_title)
+
+    # prepare data for fourier analysis
+    Lx, Ly = extract_distances(w_field.coords('latitude')[0].points, w_field.coords('longitude')[0].points)
+    w_field = w_field[0, ::-1].data
+    return w_field, Lx, Ly
 
 
 if __name__ == '__main__':
@@ -62,51 +182,22 @@ if __name__ == '__main__':
     theta_bin_width = 5
 
     # settings
-    if not use_sim_sat:
-        check_argv_num(sys.argv, 2, "(settings, region json files)")
-    else:
-        check_argv_num(sys.argv, 3, "(settings, region json, radsim nc files")
+    check_argv_num(sys.argv, 2, "(settings, region json files)")
     s = load_settings(sys.argv[1])
     datetime = get_datetime_from_settings(s)
     region = sys.argv[2]
-    if use_sim_sat:
-        nc_file = sys.argv[3]
     sat_bl, sat_tr, map_bl, map_tr = get_sat_map_bltr(region)
-    my_title, save_path = make_title_and_save_path(datetime, region, 'ukv', test, k2, smoothed, mag_filter, use_sim_sat=use_sim_sat)
+    my_title, save_path = make_title_and_save_path(datetime, region, 'ukv', test, k2, smoothed, mag_filter,
+                                                   use_sim_sat=use_sim_sat)
 
     # load data
     empty_latlon = create_latlon_cube(sat_bl, sat_tr, n=501)
 
-    # use pure ukv w-field
+    # use ukv w-field or radsim
     if not use_sim_sat:
-        w_cube = read_variable(s.file, 150, s.h)
-        u_cube = read_variable(s.file, 2, s.h).regrid(w_cube, iris.analysis.Linear())
-        v_cube = read_variable(s.file, 3, s.h).regrid(w_cube, iris.analysis.Linear())
-
-        w_single_level, u_single_level, v_single_level = cube_at_single_level(s.map_height, w_cube, u_cube, v_cube,
-                                                                              bottomleft=map_bl, topright=map_tr)
-
-        orig = w_single_level.regrid(empty_latlon, iris.analysis.Linear())
-
-        # plot wind comparison
-        plot_wind(orig, u_single_level, v_single_level, empty_latlon, title=my_title)
-
-        # prepare data for fourier analysis
-        Lx, Ly = extract_distances(orig.coords('latitude')[0].points, orig.coords('longitude')[0].points)
-        orig = orig[0, ::-1].data
-
-    # else use simulated satellite imagery
+        orig, Lx, Ly = get_w_field_img(s)
     else:
-        refl = get_refl(nc_file)
-        surf_t = read_variable(s.file, 24, s.h)
-
-        refl_cube = cube_from_array_and_cube(refl[::-1], surf_t, unit=1, std_name='toa_bidirectional_reflectance')
-
-        empty = create_latlon_cube(sat_bl, sat_tr, n=501)
-        refl_regrid = refl_cube.regrid(empty, iris.analysis.Linear())
-        Lx, Ly = extract_distances(refl_regrid.coords('latitude')[0].points, refl_regrid.coords('longitude')[0].points)
-        orig = refl_regrid.data[::-1]
-        orig, smooth = periodic_smooth_decomp(orig)
+        orig, Lx, Ly = get_radsim_img(s, datetime)
 
     # get reciprocal space coordinates
     K, L, wavenumbers, thetas = recip_space(Lx, Ly, orig.shape)
@@ -182,8 +273,8 @@ if __name__ == '__main__':
     plt.figure()
     plot_2D_pspec(pspec_2d, K, L, wavelengths, wavelength_contours=[5, 10, 35], title=my_title)
     plt.scatter(dom_K, dom_L, marker='x')
-    plt.xlim(-2,2)
-    plt.ylim(-2,2)
+    plt.xlim(-2, 2)
+    plt.ylim(-2, 2)
     plt.savefig(save_path + '2d_pspec_withcross.png', dpi=300)
 
     print(f'Dominant wavelength by ellipse method: {dominant_wlen:.2f} km')
@@ -200,3 +291,6 @@ if __name__ == '__main__':
             df.loc[(f'{s.year}-{s.month:02d}-{s.day:02d}', region), 'ukv_radsim_theta_ellipse'] = dominant_theta
 
         df.to_excel('../sat_vs_ukv_results.xlsx')
+
+#     TODO save arrays so that they can be compared to eumetsat
+# TODO put plotting stuff in another file?
