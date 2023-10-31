@@ -74,7 +74,7 @@ def get_radsim_img(settings, datetime):
         radsim_run_file = "/home/users/sw825517/radsim/radsim-3.2/src/scripts/radsim_run.py"
 
         # run radsim_run.py with radsim_settings, so set radsim_settings accordingly
-        radsim_settings = {'config_file': f'{datetime}.cfg',
+        radsim_settings = {'config_file': f'/home/users/sw825517/radsim/radsim-3.2/outputs/{datetime}.cfg',
                            'radsim_bin_dir': '/home/users/sw825517/radsim/radsim-3.2/bin/',
                            'model_datafile': f'/home/users/sw825517/Documents/ukv_data/ukv_{datetime}_000.unpacked.pp',
                            'model_filetype': 0,
@@ -84,13 +84,16 @@ def get_radsim_img(settings, datetime):
                            'platform': "msg",
                            'satid': 3,
                            'inst': "seviri",
-                           'channels': 1,
+                           'channels': 12,
                            'output_mode': 1,
                            'addsolar': True,
                            'ir_addclouds': True,
                            'output_dir': nc_file_root,
                            'output_file': nc_filename,
-                           'write_latlon': True}
+                           'write_latlon': True,
+                           # 'run_mfasis': True,
+                           # 'rttov_mfasis_nn_dir': '/home/users/sw825517/rttov13/rtcoef_rttov13/mfasis_nn/'
+                           }
 
         # check whether unpacked pp file exists, if not then unpack packed pp file
         if not os.path.isfile(radsim_settings['model_datafile']):
@@ -132,7 +135,8 @@ def get_radsim_img(settings, datetime):
     empty = create_latlon_cube(sat_bl, sat_tr, n=501)
     refl_regrid = refl_cube.regrid(empty, iris.analysis.Linear())
 
-    x_dist, y_dist = extract_distances(refl_regrid.coords('latitude')[0].points, refl_regrid.coords('longitude')[0].points)
+    x_dist, y_dist = extract_distances(refl_regrid.coords('latitude')[0].points,
+                                       refl_regrid.coords('longitude')[0].points)
     image = refl_regrid.data[::-1]
     image, smooth = periodic_smooth_decomp(image)
 
@@ -173,7 +177,7 @@ if __name__ == '__main__':
     k2 = True
     smoothed = True
     mag_filter = False
-    test = False
+    test = True
     use_sim_sat = True
 
     min_lambda = 4
@@ -292,5 +296,7 @@ if __name__ == '__main__':
 
         df.to_excel('../sat_vs_ukv_results.xlsx')
 
+    np.save(save_path + 'pspec_array.npy', pspec_2d.data)
+
 #     TODO save arrays so that they can be compared to eumetsat
-# TODO put plotting stuff in another file?
+# TODO put plotting stuff in another file? so that that won't slow down running of file
