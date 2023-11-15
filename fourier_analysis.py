@@ -12,7 +12,8 @@ from astropy.convolution import convolve, Gaussian2DKernel
 from iris.analysis.cartography import rotate_winds
 from matplotlib import colors
 
-from cube_processing import read_variable, cube_at_single_level, create_latlon_cube, cube_from_array_and_cube
+from cube_processing import read_variable, cube_at_single_level, create_latlon_cube, cube_from_array_and_cube, \
+    create_km_cube
 from fourier import *
 from fourier_plot import plot_pspec_polar, plot_radial_pspec, plot_2D_pspec, filtered_inv_plot, plot_corr
 from miscellaneous import check_argv_num, load_settings, get_datetime_from_settings, get_sat_map_bltr, \
@@ -64,6 +65,10 @@ def get_radsim_img(settings, datetime):
     nc_file_root = f"/home/users/sw825517/radsim/radsim-3.2/outputs"
     nc_filename = f'{datetime}.nc'
 
+    # pp files
+    packed_pp = f'/home/users/sw825517/Documents/ukv_data/ukv_{datetime}_000.pp'
+    unpacked_pp = f'/home/users/sw825517/Documents/ukv_data/ukv_{datetime}_000.unpacked.pp'
+
     # in case radsim has already run simulation
     try:
         refl = get_refl(nc_file_root + '/' + nc_filename)
@@ -76,7 +81,9 @@ def get_radsim_img(settings, datetime):
         # run radsim_run.py with radsim_settings, so set radsim_settings accordingly
         radsim_settings = {'config_file': f'/home/users/sw825517/radsim/radsim-3.2/outputs/{datetime}.cfg',
                            'radsim_bin_dir': '/home/users/sw825517/radsim/radsim-3.2/bin/',
-                           'model_datafile': f'/home/users/sw825517/Documents/ukv_data/ukv_{datetime}_000.unpacked.pp',
+                           'brdf_atlas_dir': '/home/users/sw825517/rttov13/brdf_data/',
+                           'use_brdf_atlas': False,
+                           'model_datafile': unpacked_pp,
                            'model_filetype': 0,
                            'rttov_coeffs_dir': '/home/users/sw825517/rttov13/rtcoef_rttov13/rttov13pred54L',
                            'rttov_coeffs_options': '_o3co2',
@@ -98,14 +105,13 @@ def get_radsim_img(settings, datetime):
         # check whether unpacked pp file exists, if not then unpack packed pp file
         if not os.path.isfile(radsim_settings['model_datafile']):
             print('Unpacked .pp file does not exist, will try to create...')
-            packed_pp = f'/home/users/sw825517/Documents/ukv_data/ukv_{datetime}_000.pp'
 
             # check whether packed pp exists
             if os.path.isfile(packed_pp):
                 # ensure packed pp has 10m winds on correct grid
                 try:
-                    _ = read_variable(packed_pp, 3225, settings.h)
-                    _ = read_variable(packed_pp, 3226, settings.h)
+                    _ = read_variable(packed_pp, 3209, settings.h)
+                    _ = read_variable(packed_pp, 3210, settings.h)
                 except IndexError:
                     print(f'packed .pp {packed_pp} does not have 10m winds on correct grid, regridding...')
                     regrid_10m_wind_and_append(settings, packed_pp)
@@ -114,7 +120,7 @@ def get_radsim_img(settings, datetime):
                 os.system(f'/home/users/sw825517/Documents/ukv_data/pp_unpack {packed_pp}')
                 # rename unpacked pp so that it ends on '.pp'
                 os.system(
-                    f"cp /home/users/sw825517/Documents/ukv_data/ukv_{datetime}_000.pp.unpacked /home/users/sw825517/Documents/ukv_data/ukv_{datetime}_000.unpacked.pp")
+                    f"cp /home/users/sw825517/Documents/ukv_data/ukv_{datetime}_000.pp.unpacked {unpacked_pp}")
                 os.system(f"rm /home/users/sw825517/Documents/ukv_data/ukv_{datetime}_000.pp.unpacked")
 
             else:
@@ -130,9 +136,8 @@ def get_radsim_img(settings, datetime):
         refl = get_refl(nc_file_root + '/' + nc_filename)
 
     # convert radsim reflectivity data from netCDF4 into iris cube, to regrid it onto a regular latlon grid
-    surf_t = read_variable(s.file, 24, s.h)
+    surf_t = read_variable(packed_pp, 24, s.h)
     refl_cube = cube_from_array_and_cube(refl[::-1], surf_t, unit=1, std_name='toa_bidirectional_reflectance')
-    empty = create_latlon_cube(sat_bl, sat_tr, n=501)
     refl_regrid = refl_cube.regrid(empty, iris.analysis.Linear())
 
     x_dist, y_dist = extract_distances(refl_regrid.coords('latitude')[0].points,
@@ -143,7 +148,7 @@ def get_radsim_img(settings, datetime):
     return image, x_dist, y_dist
 
 
-def get_w_field_img(settings):
+def get_w_field_img(settings, leadtime=0):
     """
     gets w field from ukv and prepares it for fourier analysis
     Parameters
@@ -154,15 +159,20 @@ def get_w_field_img(settings):
     -------
 
     """
-    w_cube = read_variable(settings.file, 150, settings.h)
-    u_cube = read_variable(settings.file, 2, settings.h).regrid(w_cube, iris.analysis.Linear())
-    v_cube = read_variable(settings.file, 3, settings.h).regrid(w_cube, iris.analysis.Linear())
+    try:
+        file = settings.file
+    except AttributeError:
+        file = f'/home/users/sw825517/Documents/ukv_data/ukv_{s.year}-{s.month:02d}-{s.day:02d}_{s.h:02d}_{leadtime:03.0f}.pp'
+
+    w_cube = read_variable(file, 150, settings.h)
+    u_cube = read_variable(file, 2, settings.h).regrid(w_cube, iris.analysis.Linear())
+    v_cube = read_variable(file, 3, settings.h).regrid(w_cube, iris.analysis.Linear())
     w_single_level, u_single_level, v_single_level = cube_at_single_level(s.map_height, w_cube, u_cube, v_cube,
                                                                           bottomleft=sat_bl, topright=sat_tr)
-    w_field = w_single_level.regrid(empty_latlon, iris.analysis.Linear())
+    w_field = w_single_level.regrid(empty, iris.analysis.Linear())
 
     # plot wind comparison
-    plot_wind(w_field, u_single_level, v_single_level, empty_latlon, title=my_title)
+    plot_wind(w_field, u_single_level, v_single_level, empty, title=my_title)
 
     # prepare data for fourier analysis
     Lx, Ly = extract_distances(w_field.coords('latitude')[0].points, w_field.coords('longitude')[0].points)
@@ -174,10 +184,11 @@ if __name__ == '__main__':
     # TODO look for pp files automatically based on json file dates
 
     # options
-    k2 = True
+    # TODO check k3 k2 settings, possibly just turn into a setting which takes a power of k as an argument?
+    k3 = True
     smoothed = True
     mag_filter = False
-    test = True
+    test = False
     use_sim_sat = True
 
     min_lambda = 4
@@ -191,11 +202,11 @@ if __name__ == '__main__':
     datetime = get_datetime_from_settings(s)
     region = sys.argv[2]
     sat_bl, sat_tr, map_bl, map_tr = get_sat_map_bltr(region)
-    my_title, save_path = make_title_and_save_path(datetime, region, 'ukv', test, k2, smoothed, mag_filter,
-                                                   use_sim_sat=use_sim_sat)
+    my_title, save_path = make_title_and_save_path(datetime, region, 'ukv', test, smoothed, mag_filter,
+                                                   k3=k3, use_sim_sat=use_sim_sat)
 
     # load data
-    empty_latlon = create_latlon_cube(sat_bl, sat_tr, n=501)
+    empty = create_km_cube(sat_bl, sat_tr)
 
     # use ukv w-field or radsim
     if not use_sim_sat:
@@ -226,8 +237,8 @@ if __name__ == '__main__':
     pspec_2d = np.ma.masked_where(bandpassed.mask, abs(shifted_ft) ** 2)
 
     # multiply by |k|^2
-    if k2:
-        pspec_2d = np.ma.masked_where(pspec_2d.mask, pspec_2d.data * wavenumbers ** 2)
+    if k3:
+        pspec_2d = np.ma.masked_where(pspec_2d.mask, pspec_2d.data * wavenumbers ** 3)
 
     # convert power spectrum to polar coordinates
     # noinspection PyTupleAssignmentBalance
@@ -266,10 +277,19 @@ if __name__ == '__main__':
 
     # find maximum in correlation array
     dominant_wlen, dominant_theta, dom_K, dom_L = find_corr_max(collapsed_corr, K, L, wavelengths, thetas)
+    dominant_wnum = 2 * np.pi / dominant_wlen
+    (lambda_min, lambda_plus), (theta_min, theta_plus) = find_corr_error(collapsed_corr, K, L,
+                                                                         2 * np.pi / dominant_wlen, dominant_theta)
+
+    err_wnums = np.linspace(2*np.pi/lambda_min, 2*np.pi/lambda_plus, 500)
+    err_thetas = np.linspace(theta_min, theta_plus, 500)
 
     # plot correlation array with maximum
     plt.figure()
     plot_corr(collapsed_corr, K, L)
+    for i in range(len(err_thetas)):
+        plt.scatter(*pol2cart(dominant_wnum, np.deg2rad(-(err_thetas[i] % 180 - 90))), c='k', s=0.5)
+        plt.scatter(*pol2cart(err_wnums[i], np.deg2rad((-dominant_theta+90))), c='k', s=0.5)
     plt.scatter(dom_K, dom_L, marker='x')
     plt.savefig(save_path + 'corr.png', dpi=300)
 
@@ -282,17 +302,27 @@ if __name__ == '__main__':
     plt.savefig(save_path + '2d_pspec_withcross.png', dpi=300)
 
     print(f'Dominant wavelength by ellipse method: {dominant_wlen:.2f} km')
+    print(f'Dominant wavelength range estimate: {lambda_min:.2f}-{lambda_plus:.2f} km')
     print(f'Dominant angle by ellipse method: {dominant_theta:.0f} deg from north')
+    print(f'Dominant angle range estimate: {theta_min:.0f}-{theta_plus:.0f} deg')
 
     # save to csv with results
     if not test:
         df = pd.read_excel('../sat_vs_ukv_results.xlsx', index_col=[0, 1])
         if not use_sim_sat:
             df.loc[(f'{s.year}-{s.month:02d}-{s.day:02d}', region), 'ukv_lambda_ellipse'] = dominant_wlen
+            df.loc[(f'{s.year}-{s.month:02d}-{s.day:02d}', region), 'ukv_lambda_ellipse_min'] = lambda_min
+            df.loc[(f'{s.year}-{s.month:02d}-{s.day:02d}', region), 'ukv_lambda_ellipse_max'] = lambda_plus
             df.loc[(f'{s.year}-{s.month:02d}-{s.day:02d}', region), 'ukv_theta_ellipse'] = dominant_theta
+            df.loc[(f'{s.year}-{s.month:02d}-{s.day:02d}', region), 'ukv_theta_ellipse_min'] = theta_min
+            df.loc[(f'{s.year}-{s.month:02d}-{s.day:02d}', region), 'ukv_theta_ellipse_max'] = theta_plus
         else:
             df.loc[(f'{s.year}-{s.month:02d}-{s.day:02d}', region), 'ukv_radsim_lambda_ellipse'] = dominant_wlen
+            df.loc[(f'{s.year}-{s.month:02d}-{s.day:02d}', region), 'ukv_radsim_lambda_ellipse_min'] = lambda_min
+            df.loc[(f'{s.year}-{s.month:02d}-{s.day:02d}', region), 'ukv_radsim_lambda_ellipse_max'] = lambda_plus
             df.loc[(f'{s.year}-{s.month:02d}-{s.day:02d}', region), 'ukv_radsim_theta_ellipse'] = dominant_theta
+            df.loc[(f'{s.year}-{s.month:02d}-{s.day:02d}', region), 'ukv_radsim_theta_ellipse_min'] = theta_min
+            df.loc[(f'{s.year}-{s.month:02d}-{s.day:02d}', region), 'ukv_radsim_theta_ellipse_max'] = theta_plus
 
         df.to_excel('../sat_vs_ukv_results.xlsx')
 
