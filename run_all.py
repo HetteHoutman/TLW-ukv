@@ -3,6 +3,10 @@ import sys
 
 import pandas as pd
 
+from miscellaneous import check_argv_num
+
+check_argv_num(sys.argv, 1, '(sat_ukv_results xlsx)')
+
 df = pd.read_excel(sys.argv[1], index_col=[0,1])
 
 for idx, row in df.iterrows():
