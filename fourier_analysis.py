@@ -168,7 +168,7 @@ def get_w_field_img(settings, leadtime=0):
     u_cube = read_variable(file, 2, settings.h).regrid(w_cube, iris.analysis.Linear())
     v_cube = read_variable(file, 3, settings.h).regrid(w_cube, iris.analysis.Linear())
     w_single_level, u_single_level, v_single_level = cube_at_single_level(s.map_height, w_cube, u_cube, v_cube,
-                                                                          bottomleft=sat_bl, topright=sat_tr)
+                                                                          bottomleft=map_bl, topright=map_tr)
     w_field = w_single_level.regrid(empty, iris.analysis.Linear())
 
     # plot wind comparison
@@ -197,6 +197,7 @@ if __name__ == '__main__':
     theta_bin_width = 5
 
     # settings
+    # TODO check map and sat bl and tr, ireland e.g. is not properly adjusted - problems with interpolation onto latlon
     check_argv_num(sys.argv, 2, "(settings, region json files)")
     s = load_settings(sys.argv[1])
     datetime = get_datetime_from_settings(s)
@@ -229,7 +230,7 @@ if __name__ == '__main__':
 
     # plot ingoing data
     plt.figure()
-    filtered_inv_plot(orig, bandpassed, Lx, Ly, inverse_fft=False, title=my_title,  # latlon=area_extent
+    filtered_inv_plot(orig, bandpassed, Lx, Ly, inverse_fft=False, title=my_title, radsim=use_sim_sat # latlon=area_extent
                       )
     plt.savefig(save_path + 'sat_plot.png', dpi=300)
 
@@ -253,23 +254,24 @@ if __name__ == '__main__':
     # find maximum in polar power spectrum
     bounded_polar_pspec, bounded_wnum_vals = apply_wnum_bounds(radial_pspec, wnum_vals, wnum_bins,
                                                                (min_lambda, max_lambda))
-    dominant_wnum, dominant_theta = find_max(bounded_polar_pspec, bounded_wnum_vals, theta_vals)
+    # dominant_wnum_max, dominant_theta_max = find_max(bounded_polar_pspec, bounded_wnum_vals, theta_vals)
+    dom_wlen_max, dom_theta_max, dom_K_max, dom_L_max = find_cart_max(pspec_2d.data, K, L, wavelengths, thetas)
 
     # plot polar power spectrum along with maximum
     plt.figure()
     plot_pspec_polar(wnum_bins, theta_bins, radial_pspec, scale='log', xlim=(0.05, 4.5),
                      vmin=np.nanmin(bounded_polar_pspec), vmax=np.nanmax(bounded_polar_pspec),
                      title=my_title, min_lambda=min_lambda, max_lambda=max_lambda)
-    plt.scatter(dominant_wnum, dominant_theta, marker='x', color='k', s=100, zorder=100)
+    # plt.scatter(dominant_wnum_max, dominant_theta_max, marker='x', color='k', s=100, zorder=100)
     plt.tight_layout()
     plt.savefig(save_path + 'polar_pspec.png', dpi=300)
 
-    print(f'Dominant wavelength: {2 * np.pi / dominant_wnum:.2f} km')
-    print(f'Dominant angle: {dominant_theta:.0f} deg from north')
+    print(f'Dominant wavelength: {dom_wlen_max:.2f} km')
+    print(f'Dominant angle: {dom_theta_max:.0f} deg from north')
 
     # plot radial power spectrum
     plt.figure()
-    plot_radial_pspec(radial_pspec, wnum_vals, theta_bins, dominant_wnum, title=my_title)
+    plot_radial_pspec(radial_pspec, wnum_vals, theta_bins, 2*np.pi/dom_wlen_max, title=my_title)
     plt.savefig(save_path + 'radial_pspec.png', dpi=300)
 
     # perform correlation with ellipse
@@ -296,7 +298,8 @@ if __name__ == '__main__':
     # plot cartesian power spectrum with maximum from ellipse correlation
     plt.figure()
     plot_2D_pspec(pspec_2d, K, L, wavelengths, wavelength_contours=[5, 10, 35], title=my_title)
-    plt.scatter(dom_K, dom_L, marker='x')
+    plt.scatter(dom_K, dom_L, marker='x', label='ellipse')
+    plt.scatter(dom_K_max, dom_L_max, marker='x', c='k', label='maximum')
     plt.xlim(-2, 2)
     plt.ylim(-2, 2)
     plt.savefig(save_path + '2d_pspec_withcross.png', dpi=300)
@@ -308,25 +311,36 @@ if __name__ == '__main__':
 
     # save to csv with results
     if not test:
-        df = pd.read_excel('../sat_vs_ukv_results.xlsx', index_col=[0, 1])
-        if not use_sim_sat:
-            df.loc[(f'{s.year}-{s.month:02d}-{s.day:02d}', region), 'ukv_lambda_ellipse'] = dominant_wlen
-            df.loc[(f'{s.year}-{s.month:02d}-{s.day:02d}', region), 'ukv_lambda_ellipse_min'] = lambda_min
-            df.loc[(f'{s.year}-{s.month:02d}-{s.day:02d}', region), 'ukv_lambda_ellipse_max'] = lambda_plus
-            df.loc[(f'{s.year}-{s.month:02d}-{s.day:02d}', region), 'ukv_theta_ellipse'] = dominant_theta
-            df.loc[(f'{s.year}-{s.month:02d}-{s.day:02d}', region), 'ukv_theta_ellipse_min'] = theta_min
-            df.loc[(f'{s.year}-{s.month:02d}-{s.day:02d}', region), 'ukv_theta_ellipse_max'] = theta_plus
-        else:
-            df.loc[(f'{s.year}-{s.month:02d}-{s.day:02d}', region), 'ukv_radsim_lambda_ellipse'] = dominant_wlen
-            df.loc[(f'{s.year}-{s.month:02d}-{s.day:02d}', region), 'ukv_radsim_lambda_ellipse_min'] = lambda_min
-            df.loc[(f'{s.year}-{s.month:02d}-{s.day:02d}', region), 'ukv_radsim_lambda_ellipse_max'] = lambda_plus
-            df.loc[(f'{s.year}-{s.month:02d}-{s.day:02d}', region), 'ukv_radsim_theta_ellipse'] = dominant_theta
-            df.loc[(f'{s.year}-{s.month:02d}-{s.day:02d}', region), 'ukv_radsim_theta_ellipse_min'] = theta_min
-            df.loc[(f'{s.year}-{s.month:02d}-{s.day:02d}', region), 'ukv_radsim_theta_ellipse_max'] = theta_plus
+        csv_root = 'fourier_results/'
+        csv_file = 'ukv'
+        if use_sim_sat:
+            csv_file += '_radsim'
+        if k3:
+            csv_file += '_k3'
+        if smoothed:
+            csv_file += '_smoothed'
 
-        df.to_excel('../sat_vs_ukv_results.xlsx')
+        csv_file += '_results.csv'
+
+        try:
+            df = pd.read_csv(csv_root + csv_file, index_col=[0, 1, 2], parse_dates=[0], dayfirst=True)
+        except FileNotFoundError:
+            df = pd.read_csv(csv_root + 'template.csv', index_col=[0, 1, 2], parse_dates=[0], dayfirst=True)
+
+        df.sort_index(inplace=True)
+        date = pd.to_datetime(f'{s.year}-{s.month:02d}-{s.day:02d}')
+
+        df.loc[(date, region, s.h), 'lambda'] = dominant_wlen
+        df.loc[(date, region, s.h), 'lambda_min'] = lambda_min
+        df.loc[(date, region, s.h), 'lambda_max'] = lambda_plus
+        df.loc[(date, region, s.h), 'theta'] = dominant_theta
+        df.loc[(date, region, s.h), 'theta_min'] = theta_min
+        df.loc[(date, region, s.h), 'theta_max'] = theta_plus
+
+        # sort for clarity if any new dates have been added
+        df.sort_index(inplace=True)
+        df.to_csv(csv_root + csv_file)
 
     np.save(save_path + 'pspec_array.npy', pspec_2d.data)
 
-#     TODO save arrays so that they can be compared to eumetsat
 # TODO put plotting stuff in another file? so that that won't slow down running of file
