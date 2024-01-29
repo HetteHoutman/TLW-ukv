@@ -121,43 +121,43 @@ if __name__ == '__main__':
     henk_lambda, henk_theta = lambdas[avg_idxs[0]], thetas[avg_idxs[1]]
 
     # plot images
+    plt.figure()
     plot_contour_over_image(orig, max_pspec, Lx, Ly, cbarlabel='Maximum of wavelet power spectrum',
                             alpha=0.5, norm=mpl.colors.LogNorm())
     plt.savefig(save_path + 'wavelet_pspec_max.png', dpi=300)
-    plt.show()
 
+    plt.figure()
     plot_contour_over_image(orig, max_lambdas, Lx, Ly, cbarlabel='Dominant wavelength (km)',
                             alpha=0.5)
     plt.savefig(save_path + 'wavelet_dom_lambda.png', dpi=300)
-    plt.show()
 
+    plt.figure()
     plot_contour_over_image(orig, max_thetas, Lx, Ly, cbarlabel='Dominant orientation (degrees from North)',
                             alpha=0.5)
     plt.savefig(save_path + 'wavelet_dom_theta.png', dpi=300)
-    plt.show()
 
     # plot histograms
+    plt.figure()
     plot_k_histogram(max_lambdas[~max_pspec.mask], max_thetas[~max_pspec.mask], lambdas_edges, thetas_edges)
     plt.savefig(save_path + 'wavelet_k_histogram_max.png', dpi=300)
-    plt.show()
 
     plot_k_histogram(strong_lambdas, strong_thetas, lambdas_edges, thetas_edges)
+    plt.figure()
     plt.scatter(result_lambda, result_theta, marker='x', color='k')
     plt.savefig(save_path + 'wavelet_k_histogram_full_pspec.png', dpi=300)
-    plt.show()
 
     plot_polar_pcolormesh(strong_hist, lambdas_edges, thetas_edges, cbarlabel='Dominant wavelet count')
+    plt.figure()
     plt.scatter(np.deg2rad(result_theta), result_lambda, marker='x', color='k')
     plt.savefig(save_path + 'wavelet_k_histogram_strong_pspec_polar.png', dpi=300)
-    plt.show()
 
+    plt.figure()
     plot_polar_pcolormesh(max_hist, lambdas_edges, thetas_edges, cbarlabel='Dominant wavelet count')
     plt.savefig(save_path + 'wavelet_k_histogram_max_pspec_polar.png', dpi=300)
-    plt.show()
 
+    plt.figure()
     plot_polar_pcolormesh(avg_pspec, lambdas_edges, thetas_edges, cbarlabel='Average power spectrum')
     plt.savefig(save_path + 'wavelet_average_pspec.png', dpi=300)
-    plt.show()
 
     # save results
     if not test:
