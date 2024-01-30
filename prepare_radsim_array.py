@@ -3,7 +3,8 @@ import sys
 import iris
 
 from cube_processing import read_variable, cube_from_array_and_cube, create_latlon_cube
-from miscellaneous import check_argv_num, load_settings, get_region_var, get_refl
+from miscellaneous import check_argv_num, load_settings, get_region_var
+from prepare_data import get_refl
 
 if __name__ == '__main__':
     check_argv_num(sys.argv, 3, '(settings, region, radsim output file)')
