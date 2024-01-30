@@ -1,28 +1,9 @@
 import sys
 
 import iris
-import iris.quickplot as qplt
-import matplotlib.pyplot as plt
-import netCDF4 as nc
 
 from cube_processing import read_variable, cube_from_array_and_cube, create_latlon_cube
-from miscellaneous import check_argv_num, load_settings, get_region_var
-
-
-def get_refl(nc_file):
-    varname = 'refl'
-    output = nc.Dataset(nc_file)
-
-    if varname not in output.variables:
-        print('Error: varname ' + varname + ' not found in ' + nc_file)
-        sys.exit(1)
-    if 'lat' not in output.variables or 'lon' not in output.variables:
-        print('Error: netCDF file must contain lat and lon values')
-        sys.exit(1)
-
-    refl = output.variables['refl'][:].reshape(808, 621)[::-1]
-    return refl
-
+from miscellaneous import check_argv_num, load_settings, get_region_var, get_refl
 
 if __name__ == '__main__':
     check_argv_num(sys.argv, 3, '(settings, region, radsim output file)')
