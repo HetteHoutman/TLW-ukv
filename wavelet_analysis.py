@@ -10,11 +10,14 @@ from cube_processing import read_variable, cube_at_single_level, create_km_cube
 from fourier import *
 from miscellaneous import *
 from miscellaneous import check_argv_num, load_settings, get_datetime_from_settings, get_sat_map_bltr
+from prepare_data import get_radsim_img
 from wavelet import *
 from wavelet_plot import *
 
 
+
 def get_w_field_img(settings, leadtime=0):
+    # TODO put in useful_code
     """
     gets w field from ukv and prepares it for fourier analysis
     Parameters
@@ -48,14 +51,15 @@ if __name__ == '__main__':
     # options
     test = False
     stripe_test = False
+    use_radsim = False
 
     lambda_min = 5
     lambda_max = 35
     lambda_bin_width = 1
     theta_bin_width = 5
     omega_0x = 6
-    # pspec_threshold = 3e-4
-    pspec_threshold = 1e-2
+    pspec_threshold = 1e-4 # wfield unthresholded
+    # pspec_threshold = 1e-2 #wfield thresholded
     block_size = 51
 
     # settings
@@ -69,20 +73,29 @@ if __name__ == '__main__':
     if test:
         save_path = f'./plots/test/'
 
+    if use_radsim:
+        save_path += 'radsim'
+
     # load data
     empty = create_km_cube(sat_bl, sat_tr)
 
     # produce image
-    orig, Lx, Ly = get_w_field_img(s)
+    if use_radsim:
+        orig, Lx, Ly = get_radsim_img(s, datetime, empty)
+    else:
+        orig, Lx, Ly = get_w_field_img(s)
 
     # normalise orig image
+    orig -= orig.min()
     orig /= orig.max()
     # orig = exposure.equalize_hist(orig)
-    orig = orig > threshold_local(orig, block_size)
+    # orig = orig > threshold_local(orig, block_size)
+    # orig = orig > th
 
     # lambdas, lambdas_edges = create_range_and_bin_edges_from_minmax([lambda_min, lambda_max],
     #                                                                 lambda_max - lambda_min + 1)
-    lambdas, lambdas_edges = log_spaced_lambda([lambda_min, lambda_max], 1.075)
+    # lambdas, lambdas_edges = log_spaced_lambda([lambda_min, lambda_max], 1.075)
+    lambdas, lambdas_edges = k_spaced_lambda([lambda_min, lambda_max], 40)
     thetas = np.arange(0, 180, theta_bin_width)
     thetas_edges = create_bins_from_midpoints(thetas)
     scales = omega_0x * lambdas / (2 * np.pi)
@@ -108,7 +121,8 @@ if __name__ == '__main__':
     max_hist, _, _ = np.histogram2d(max_lambdas[~max_pspec.mask], max_thetas[~max_pspec.mask],
                                     bins=[lambdas_edges, thetas_edges])
 
-    # histogram smoothing (tile along theta-axis and select middle part so that smoothing is periodic over theta
+    # histogram smoothing (tile along theta-axis and select middle part so that smoothing is periodic over theta)
+    # TODO make sure smoothing is adaptive to resolution in lambda, theta
     strong_hist_smoothed = gaussian(np.tile(strong_hist, 3))[:, strong_hist.shape[1]:strong_hist.shape[1] * 2]
     max_hist_smoothed = gaussian(np.tile(max_hist, 3))[:, max_hist.shape[1]:max_hist.shape[1] * 2]
 
@@ -162,7 +176,10 @@ if __name__ == '__main__':
     # save results
     if not test:
         csv_root = 'wavelet_results/'
-        csv_file = f'ukv_adapt_thresh_{block_size}.csv'
+        if use_radsim:
+            csv_file = f'radsim_normalised.csv'
+        else:
+            csv_file = f'ukv_normalised.csv'
 
         try:
             df = pd.read_csv(csv_root + csv_file, index_col=[0, 1, 2], parse_dates=[0], dayfirst=True)
@@ -178,18 +195,3 @@ if __name__ == '__main__':
         df.sort_index(inplace=True)
         df.to_csv(csv_root + csv_file)
 
-        csv_file = f'ukv_test.csv'
-
-        try:
-            df = pd.read_csv(csv_root + csv_file, index_col=[0, 1, 2], parse_dates=[0], dayfirst=True)
-        except FileNotFoundError:
-            df = pd.read_csv(csv_root + 'template.csv', index_col=[0, 1, 2], parse_dates=[0], dayfirst=True)
-
-        df.sort_index(inplace=True)
-        date = pd.to_datetime(f'{s.year}-{s.month:02d}-{s.day:02d}')
-
-        df.loc[(date, region, s.h), 'lambda'] = henk_lambda
-        df.loc[(date, region, s.h), 'theta'] = henk_theta
-
-        df.sort_index(inplace=True)
-        df.to_csv(csv_root + csv_file)
