@@ -126,13 +126,9 @@ if __name__ == '__main__':
     strong_hist_smoothed = gaussian(np.tile(strong_hist, 3))[:, strong_hist.shape[1]:strong_hist.shape[1] * 2]
     max_hist_smoothed = gaussian(np.tile(max_hist, 3))[:, max_hist.shape[1]:max_hist.shape[1] * 2]
 
-    # determine maximum in smoothed image
-    idxs = np.unravel_index(strong_hist_smoothed.argmax(), strong_hist_smoothed.shape)
-    result_lambda, result_theta = lambdas[idxs[0]], thetas[idxs[1]]
-
-    # avg max
-    avg_idxs = np.unravel_index(avg_pspec.argmax(), avg_pspec.shape)
-    henk_lambda, henk_theta = lambdas[avg_idxs[0]], thetas[avg_idxs[1]]
+    # determine maximum in smoothed histogram
+    lambda_selected, theta_selected, lambda_bounds, theta_bounds = find_polar_max_and_error(strong_hist_smoothed,
+                                                                                            lambdas, thetas)
 
     # plot images
     plot_contour_over_image(orig, max_pspec, Lx, Ly, cbarlabel='Maximum of wavelet power spectrum',
@@ -156,12 +152,12 @@ if __name__ == '__main__':
     plt.close()
 
     plot_k_histogram(strong_lambdas, strong_thetas, lambdas_edges, thetas_edges)
-    plt.scatter(result_lambda, result_theta, marker='x', color='k')
+    plt.scatter(lambda_selected, theta_selected, marker='x', color='k')
     plt.savefig(save_path + 'wavelet_k_histogram_full_pspec.png', dpi=300)
     plt.close()
 
     plot_polar_pcolormesh(strong_hist, lambdas_edges, thetas_edges, cbarlabel='Dominant wavelet count')
-    plt.scatter(np.deg2rad(result_theta), result_lambda, marker='x', color='k')
+    plt.scatter(np.deg2rad(theta_selected), lambda_selected, marker='x', color='k')
     plt.savefig(save_path + 'wavelet_k_histogram_strong_pspec_polar.png', dpi=300)
     plt.close()
 
@@ -189,8 +185,12 @@ if __name__ == '__main__':
         df.sort_index(inplace=True)
         date = pd.to_datetime(f'{s.year}-{s.month:02d}-{s.day:02d}')
 
-        df.loc[(date, region, s.h), 'lambda'] = result_lambda
-        df.loc[(date, region, s.h), 'theta'] = result_theta
+        df.loc[(date, region, s.h), 'lambda'] = lambda_selected
+        df.loc[(date, region, s.h), 'lambda_min'] = lambda_bounds[0]
+        df.loc[(date, region, s.h), 'lambda_max'] = lambda_bounds[1]
+        df.loc[(date, region, s.h), 'theta'] = theta_selected
+        df.loc[(date, region, s.h), 'theta_min'] = theta_bounds[0]
+        df.loc[(date, region, s.h), 'theta_max'] = theta_bounds[1]
 
         df.sort_index(inplace=True)
         df.to_csv(csv_root + csv_file)
