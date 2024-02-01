@@ -1,100 +1,58 @@
-import iris
-import iris.cube
+import sys
+
+import datetime as dt
+import matplotlib as mpl
 import pandas as pd
 import py_cwt2d
-from iris.analysis.cartography import rotate_winds
 from skimage.filters import gaussian, threshold_local
-import matplotlib as mpl
 
-from cube_processing import read_variable, cube_at_single_level, create_km_cube
-from fourier import *
-from miscellaneous import *
-from miscellaneous import check_argv_num, load_settings, get_datetime_from_settings, get_sat_map_bltr
-from prepare_data import get_radsim_img
+from miscellaneous import check_argv_num, k_spaced_lambda, create_bins_from_midpoints
+from prepare_data import get_radsim_img, get_w_field_img
 from wavelet import *
 from wavelet_plot import *
-
-
-
-def get_w_field_img(settings, leadtime=0):
-    # TODO put in useful_code
-    """
-    gets w field from ukv and prepares it for fourier analysis
-    Parameters
-    ----------
-    settings
-
-    Returns
-    -------
-
-    """
-    try:
-        file = settings.file
-    except AttributeError:
-        file = f'/home/users/sw825517/Documents/ukv_data/ukv_{s.year}-{s.month:02d}-{s.day:02d}_{s.h:02d}_{leadtime:03.0f}.pp'
-
-    w_cube = read_variable(file, 150, settings.h)
-    u_cube = read_variable(file, 2, settings.h).regrid(w_cube, iris.analysis.Linear())
-    v_cube = read_variable(file, 3, settings.h).regrid(w_cube, iris.analysis.Linear())
-    w_single_level, u_single_level, v_single_level = cube_at_single_level(s.map_height, w_cube, u_cube, v_cube,
-                                                                          bottomleft=map_bl, topright=map_tr)
-    w_field = w_single_level.regrid(empty, iris.analysis.Linear())
-
-
-    # prepare data for fourier analysis
-    Lx, Ly = extract_distances(w_field.coords('latitude')[0].points, w_field.coords('longitude')[0].points)
-    w_field = w_field[0, ::-1].data
-    return w_field, Lx, Ly
-
 
 if __name__ == '__main__':
     # options
     test = False
     stripe_test = False
-    use_radsim = False
+    use_radsim = True
 
     lambda_min = 5
     lambda_max = 35
-    lambda_bin_width = 1
     theta_bin_width = 5
     omega_0x = 6
-    pspec_threshold = 1e-4 # wfield unthresholded
-    # pspec_threshold = 1e-2 #wfield thresholded
+    if use_radsim:
+        pspec_threshold = 1e-2 # wfield thresholded
+    else:
+        pspec_threshold = 1e-4 # wfield unthresholded
     block_size = 51
 
     # settings
-    check_argv_num(sys.argv, 2, "(settings, region json files)")
-    s = load_settings(sys.argv[1])
-    datetime = get_datetime_from_settings(s)
+    check_argv_num(sys.argv, 2, "(datetime (YYYY-MM-DD_HH), region)")
+    datetime_string = sys.argv[1]
+    datetime = dt.datetime.strptime(datetime_string, '%Y-%m-%d_%H')
     region = sys.argv[2]
-    sat_bl, sat_tr, map_bl, map_tr = get_sat_map_bltr(region)
 
-    save_path = f'./plots/{datetime}/{region}/'
+    save_path = f'./plots/{datetime_string}/{region}/'
     if test:
         save_path = f'./plots/test/'
 
     if use_radsim:
         save_path += 'radsim'
 
-    # load data
-    empty = create_km_cube(sat_bl, sat_tr)
-
     # produce image
     if use_radsim:
-        orig, Lx, Ly = get_radsim_img(s, datetime, empty)
+        orig, Lx, Ly = get_radsim_img(datetime, region)
     else:
-        orig, Lx, Ly = get_w_field_img(s)
+        orig, Lx, Ly = get_w_field_img(datetime, region)
 
     # normalise orig image
     orig -= orig.min()
     orig /= orig.max()
-    # orig = exposure.equalize_hist(orig)
-    # orig = orig > threshold_local(orig, block_size)
-    # orig = orig > th
 
-    # lambdas, lambdas_edges = create_range_and_bin_edges_from_minmax([lambda_min, lambda_max],
-    #                                                                 lambda_max - lambda_min + 1)
-    # lambdas, lambdas_edges = log_spaced_lambda([lambda_min, lambda_max], 1.075)
+    if use_radsim:
+        orig = orig > threshold_local(orig, block_size)
+
     lambdas, lambdas_edges = k_spaced_lambda([lambda_min, lambda_max], 40)
     thetas = np.arange(0, 180, theta_bin_width)
     thetas_edges = create_bins_from_midpoints(thetas)
@@ -173,24 +131,23 @@ if __name__ == '__main__':
     if not test:
         csv_root = 'wavelet_results/'
         if use_radsim:
-            csv_file = f'radsim_normalised.csv'
+            csv_file = f'radsim_adapt_threshold_{block_size}.csv'
         else:
             csv_file = f'ukv_normalised.csv'
 
         try:
-            df = pd.read_csv(csv_root + csv_file, index_col=[0, 1, 2], parse_dates=[0], dayfirst=True)
+            df = pd.read_csv(csv_root + csv_file, index_col=[0, 1, 2], parse_dates=[0])
         except FileNotFoundError:
-            df = pd.read_csv(csv_root + 'template.csv', index_col=[0, 1, 2], parse_dates=[0], dayfirst=True)
+            df = pd.read_csv(csv_root + 'template.csv', index_col=[0, 1, 2], parse_dates=[0])
 
         df.sort_index(inplace=True)
-        date = pd.to_datetime(f'{s.year}-{s.month:02d}-{s.day:02d}')
 
-        df.loc[(date, region, s.h), 'lambda'] = lambda_selected
-        df.loc[(date, region, s.h), 'lambda_min'] = lambda_bounds[0]
-        df.loc[(date, region, s.h), 'lambda_max'] = lambda_bounds[1]
-        df.loc[(date, region, s.h), 'theta'] = theta_selected
-        df.loc[(date, region, s.h), 'theta_min'] = theta_bounds[0]
-        df.loc[(date, region, s.h), 'theta_max'] = theta_bounds[1]
+        df.loc[(str(datetime.date()), region, datetime.hour), 'lambda'] = lambda_selected
+        df.loc[(str(datetime.date()), region, datetime.hour), 'lambda_min'] = lambda_bounds[0]
+        df.loc[(str(datetime.date()), region, datetime.hour), 'lambda_max'] = lambda_bounds[1]
+        df.loc[(str(datetime.date()), region, datetime.hour), 'theta'] = theta_selected
+        df.loc[(str(datetime.date()), region, datetime.hour), 'theta_min'] = theta_bounds[0]
+        df.loc[(str(datetime.date()), region, datetime.hour), 'theta_max'] = theta_bounds[1]
 
         df.sort_index(inplace=True)
         df.to_csv(csv_root + csv_file)
