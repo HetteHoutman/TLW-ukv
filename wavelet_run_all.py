@@ -3,8 +3,8 @@ import sys
 
 import pandas as pd
 
-df = pd.read_excel(sys.argv[1], index_col=[0,1])
+df = pd.read_excel(sys.argv[1], index_col=[0,1,2], parse_dates=[0])
 
 for idx, row in df.iterrows():
     os.system(
-        f"python wavelet_analysis.py ./settings/{idx[0][:4]}{idx[0][5:7]}{idx[0][8:10]}_{row.hour}.json {idx[1]}")
+        f"python wavelet_analysis.py {idx[0].date()}_{idx[2]} {idx[1]}")
