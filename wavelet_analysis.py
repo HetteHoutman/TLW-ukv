@@ -15,7 +15,7 @@ if __name__ == '__main__':
     # options
     test = False
     stripe_test = False
-    use_radsim = True
+    use_radsim = False
 
     lambda_min = 5
     lambda_max = 35
@@ -28,23 +28,27 @@ if __name__ == '__main__':
     block_size = 51
 
     # settings
-    check_argv_num(sys.argv, 2, "(datetime (YYYY-MM-DD_HH), region)")
+    check_argv_num(sys.argv, 3, "(datetime (YYYY-MM-DD_HH), leadtime, region)")
     datetime_string = sys.argv[1]
     datetime = dt.datetime.strptime(datetime_string, '%Y-%m-%d_%H')
-    region = sys.argv[2]
+    leadtime = int(sys.argv[2])
+    region = sys.argv[3]
 
     save_path = f'./plots/{datetime_string}/{region}/'
     if test:
         save_path = f'./plots/test/'
 
     if use_radsim:
-        save_path += 'radsim'
+        save_path += 'radsim_'
+
+    if leadtime != 0:
+        save_path += f'ld{leadtime}_'
 
     # produce image
     if use_radsim:
-        orig, Lx, Ly = get_radsim_img(datetime, region)
+        orig, Lx, Ly = get_radsim_img(datetime, region, leadtime=leadtime)
     else:
-        orig, Lx, Ly = get_w_field_img(datetime, region)
+        orig, Lx, Ly = get_w_field_img(datetime, region, leadtime=leadtime)
 
     # normalise orig image
     orig -= orig.min()
@@ -131,9 +135,14 @@ if __name__ == '__main__':
     if not test:
         csv_root = 'wavelet_results/'
         if use_radsim:
-            csv_file = f'radsim_adapt_threshold_{block_size}.csv'
+            csv_file = f'radsim_adapt_threshold_{block_size}'
         else:
-            csv_file = f'ukv_normalised.csv'
+            csv_file = f'ukv_normalised'
+
+        if leadtime != 0:
+            csv_file += f'_ld{leadtime}'
+
+        csv_file += '.csv'
 
         try:
             df = pd.read_csv(csv_root + csv_file, index_col=[0, 1, 2], parse_dates=[0])
