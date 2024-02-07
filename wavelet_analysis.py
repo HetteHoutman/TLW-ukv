@@ -2,6 +2,7 @@ import sys
 
 import datetime as dt
 import matplotlib as mpl
+import os
 import pandas as pd
 import py_cwt2d
 from skimage.filters import gaussian, threshold_local
@@ -35,6 +36,10 @@ if __name__ == '__main__':
     region = sys.argv[3]
 
     save_path = f'./plots/{datetime_string}/{region}/'
+
+    if not os.path.exists(save_path):
+        os.makedirs(save_path)
+
     if test:
         save_path = f'./plots/test/'
 
@@ -46,7 +51,9 @@ if __name__ == '__main__':
 
     # produce image
     if use_radsim:
-        orig, Lx, Ly = get_radsim_img(datetime, region, leadtime=leadtime)
+        print('Using radsim, setting leadtime=0 (currently does not support other leadtimes than 0)')
+        leadtime = 0
+        orig, Lx, Ly = get_radsim_img(datetime, region)
     else:
         orig, Lx, Ly = get_w_field_img(datetime, region, leadtime=leadtime)
 
@@ -135,7 +142,7 @@ if __name__ == '__main__':
     if not test:
         csv_root = 'wavelet_results/'
         if use_radsim:
-            csv_file = f'radsim_adapt_threshold_{block_size}'
+            csv_file = f'radsim_henk'
         else:
             csv_file = f'ukv_normalised'
 
