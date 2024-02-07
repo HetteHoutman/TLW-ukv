@@ -1,4 +1,3 @@
-import os
 import sys
 
 import cartopy.crs as ccrs
@@ -12,15 +11,12 @@ from astropy.convolution import convolve, Gaussian2DKernel
 from iris.analysis.cartography import rotate_winds
 from matplotlib import colors
 
-from cube_processing import read_variable, cube_at_single_level, create_latlon_cube, cube_from_array_and_cube, \
-    create_km_cube
+from cube_processing import read_variable, cube_at_single_level, create_km_cube
 from fourier import *
 from fourier_plot import plot_pspec_polar, plot_radial_pspec, plot_2D_pspec, filtered_inv_plot, plot_corr
 from miscellaneous import check_argv_num, load_settings, get_datetime_from_settings, get_sat_map_bltr, \
     make_title_and_save_path
-from prepare_radsim_array import get_refl
-from psd import periodic_smooth_decomp
-from regrid_and_save import regrid_10m_wind_and_append
+from prepare_data import get_radsim_img
 
 
 def plot_wind(w_cube, u_cube, v_cube, empty, step=25, title='title'):
@@ -48,104 +44,6 @@ def plot_wind(w_cube, u_cube, v_cube, empty, step=25, title='title'):
     plt.close()
 
 
-def get_radsim_img(settings, datetime):
-    """
-    gets the simulated satellite imagery from radsim and prepares it for fourier analysis.
-    could probs divvy this up into functions too
-    Parameters
-    ----------
-    settings
-    datetime
-
-    Returns
-    -------
-
-    """
-    # this should be the radsim output netCDF4 file
-    nc_file_root = f"/home/users/sw825517/radsim/radsim-3.2/outputs"
-    nc_filename = f'{datetime}.nc'
-
-    # pp files
-    packed_pp = f'/home/users/sw825517/Documents/ukv_data/ukv_{datetime}_000.pp'
-    unpacked_pp = f'/home/users/sw825517/Documents/ukv_data/ukv_{datetime}_000.unpacked.pp'
-
-    # in case radsim has already run simulation
-    try:
-        refl = get_refl(nc_file_root + '/' + nc_filename)
-
-    # if not, then run radsim
-    except FileNotFoundError:
-        print('Radsim output .nc file not found: running radsim to create')
-        radsim_run_file = "/home/users/sw825517/radsim/radsim-3.2/src/scripts/radsim_run.py"
-
-        # run radsim_run.py with radsim_settings, so set radsim_settings accordingly
-        radsim_settings = {'config_file': f'/home/users/sw825517/radsim/radsim-3.2/outputs/{datetime}.cfg',
-                           'radsim_bin_dir': '/home/users/sw825517/radsim/radsim-3.2/bin/',
-                           'brdf_atlas_dir': '/home/users/sw825517/rttov13/brdf_data/',
-                           'use_brdf_atlas': False,
-                           'model_datafile': unpacked_pp,
-                           'model_filetype': 0,
-                           'rttov_coeffs_dir': '/home/users/sw825517/rttov13/rtcoef_rttov13/rttov13pred54L',
-                           'rttov_coeffs_options': '_o3co2',
-                           'rttov_sccld_dir': '/home/users/sw825517/rttov13/rtcoef_rttov13/cldaer_visir/',
-                           'platform': "msg",
-                           'satid': 3,
-                           'inst': "seviri",
-                           'channels': 12,
-                           'output_mode': 1,
-                           'addsolar': True,
-                           'ir_addclouds': True,
-                           'output_dir': nc_file_root,
-                           'output_file': nc_filename,
-                           'write_latlon': True,
-                           # 'run_mfasis': True,
-                           # 'rttov_mfasis_nn_dir': '/home/users/sw825517/rttov13/rtcoef_rttov13/mfasis_nn/'
-                           }
-
-        # check whether unpacked pp file exists, if not then unpack packed pp file
-        if not os.path.isfile(radsim_settings['model_datafile']):
-            print('Unpacked .pp file does not exist, will try to create...')
-
-            # check whether packed pp exists
-            if os.path.isfile(packed_pp):
-                # ensure packed pp has 10m winds on correct grid
-                try:
-                    _ = read_variable(packed_pp, 3209, settings.h)
-                    _ = read_variable(packed_pp, 3210, settings.h)
-                except IndexError:
-                    print(f'packed .pp {packed_pp} does not have 10m winds on correct grid, regridding...')
-                    regrid_10m_wind_and_append(settings, packed_pp)
-
-                # unpack
-                os.system(f'/home/users/sw825517/Documents/ukv_data/pp_unpack {packed_pp}')
-                # rename unpacked pp so that it ends on '.pp'
-                os.system(
-                    f"cp /home/users/sw825517/Documents/ukv_data/ukv_{datetime}_000.pp.unpacked {unpacked_pp}")
-                os.system(f"rm /home/users/sw825517/Documents/ukv_data/ukv_{datetime}_000.pp.unpacked")
-
-            else:
-                print(f'packed .pp {packed_pp} not found')
-                sys.exit(1)
-
-        set_str = ''
-
-        for setting in radsim_settings:
-            set_str += f'--{setting} {radsim_settings[setting]} '
-
-        os.system(f"python {radsim_run_file} {set_str}")
-        refl = get_refl(nc_file_root + '/' + nc_filename)
-
-    # convert radsim reflectivity data from netCDF4 into iris cube, to regrid it onto a regular latlon grid
-    surf_t = read_variable(packed_pp, 24, s.h)
-    refl_cube = cube_from_array_and_cube(refl[::-1], surf_t, unit=1, std_name='toa_bidirectional_reflectance')
-    refl_regrid = refl_cube.regrid(empty, iris.analysis.Linear())
-
-    x_dist, y_dist = extract_distances(refl_regrid.coords('latitude')[0].points,
-                                       refl_regrid.coords('longitude')[0].points)
-    image = refl_regrid.data[::-1]
-    image, smooth = periodic_smooth_decomp(image)
-
-    return image, x_dist, y_dist
 
 
 def get_w_field_img(settings, leadtime=0):
@@ -213,7 +111,7 @@ if __name__ == '__main__':
     if not use_sim_sat:
         orig, Lx, Ly = get_w_field_img(s)
     else:
-        orig, Lx, Ly = get_radsim_img(s, datetime)
+        orig, Lx, Ly = get_radsim_img(s, datetime, empty)
 
     # get reciprocal space coordinates
     K, L, wavenumbers, thetas = recip_space(Lx, Ly, orig.shape)
