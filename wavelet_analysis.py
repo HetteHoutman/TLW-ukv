@@ -2,6 +2,7 @@ import sys
 
 import datetime as dt
 import matplotlib as mpl
+import numpy as np
 import os
 import pandas as pd
 import py_cwt2d
@@ -18,7 +19,7 @@ if __name__ == '__main__':
     stripe_test = False
     use_radsim = False
 
-    lambda_min = 5
+    lambda_min = 3
     lambda_max = 35
     theta_bin_width = 5
     omega_0x = 6
@@ -26,7 +27,11 @@ if __name__ == '__main__':
         pspec_threshold = 1e-2 # wfield thresholded
     else:
         pspec_threshold = 1e-4 # wfield unthresholded
+
     block_size = 51
+    vertical_coord = 'air_pressure'
+    analysis_level = 70000
+    n_lambda = 60
 
     # settings
     check_argv_num(sys.argv, 3, "(datetime (YYYY-MM-DD_HH), leadtime, region)")
@@ -55,7 +60,7 @@ if __name__ == '__main__':
         leadtime = 0
         orig, Lx, Ly = get_radsim_img(datetime, region)
     else:
-        orig, Lx, Ly = get_w_field_img(datetime, region, leadtime=leadtime)
+        orig, Lx, Ly = get_w_field_img(datetime, region, leadtime=leadtime, coord=vertical_coord, map_height=analysis_level)
 
     # normalise orig image
     orig -= orig.min()
@@ -64,7 +69,7 @@ if __name__ == '__main__':
     if use_radsim:
         orig = orig > threshold_local(orig, block_size)
 
-    lambdas, lambdas_edges = k_spaced_lambda([lambda_min, lambda_max], 40)
+    lambdas, lambdas_edges = k_spaced_lambda([lambda_min, lambda_max], n_lambda)
     thetas = np.arange(0, 180, theta_bin_width)
     thetas_edges = create_bins_from_midpoints(thetas)
     scales = omega_0x * lambdas / (2 * np.pi)
@@ -167,4 +172,13 @@ if __name__ == '__main__':
 
         df.sort_index(inplace=True)
         df.to_csv(csv_root + csv_file)
+
+        # data_root = f'/storage/silver/metstudent/phd/sw825517/ukv_pspecs/{datetime.strftime("%Y-%m-%d_%H")}_{leadtime:03d}/{region}/'
+        # if not os.path.exists(data_root):
+        #     os.makedirs(data_root)
+        # np.save(data_root + 'pspec.npy', pspec.data)
+        # np.save(data_root + 'lambdas.npy', lambdas)
+        # np.save(data_root + 'thetas.npy', thetas)
+        # np.save(data_root + 'threshold.npy', [pspec_threshold])
+        # np.save(data_root + 'histogram.npy', strong_hist)
 
