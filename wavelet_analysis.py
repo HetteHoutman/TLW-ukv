@@ -27,7 +27,9 @@ if __name__ == '__main__':
         pspec_threshold = 1e-2 # wfield thresholded
     else:
         pspec_threshold = 1e-4 # wfield unthresholded
+        # pspec_threshold = 1e-2 # wfield thresholded
 
+    pixels_per_km = 1
     block_size = 51
     vertical_coord = 'air_pressure'
     analysis_level = 70000
@@ -66,6 +68,8 @@ if __name__ == '__main__':
     orig -= orig.min()
     orig /= orig.max()
 
+    # orig = orig > threshold_local(orig, block_size, method='gaussian')
+
     if use_radsim:
         orig = orig > threshold_local(orig, block_size)
 
@@ -78,22 +82,28 @@ if __name__ == '__main__':
     pspec = np.zeros((*orig.shape, len(lambdas), len(thetas)))
     for i, theta in enumerate(thetas):
         cwt, wavnorm = py_cwt2d.cwt_2d(orig, scales, 'morlet', omega_0x=omega_0x, phi=np.deg2rad(90 + theta), epsilon=1)
-        pspec[..., i] = (abs(cwt) / scales / wavnorm) ** 2
+        pspec[..., i] = (abs(cwt) / scales) ** 2
 
     # calculate derived things
     pspec = np.ma.masked_less(pspec, pspec_threshold)
+
+    # e-folding distance for Morlet
+    efold_dist = np.sqrt(2) * scales
+    coi_mask = cone_of_influence_mask(pspec.data, efold_dist, pixels_per_km)
+    pspec = np.ma.masked_where(pspec.mask | coi_mask, pspec.data)
+
     threshold_mask_idx = np.argwhere(~pspec.mask)
     strong_lambdas, strong_thetas = lambdas[threshold_mask_idx[:, -2]], thetas[threshold_mask_idx[:, -1]]
 
-    max_pspec = np.ma.masked_less(pspec.data.max((-2, -1)), pspec_threshold)
-    max_lambdas, max_thetas = max_lambda_theta(pspec.data, lambdas, thetas)
+    max_pspec = pspec.max((-2, -1))
+    max_lambdas, max_thetas = max_lambda_theta(pspec, lambdas, thetas)
 
     avg_pspec = np.ma.masked_less(pspec.data, pspec_threshold / 2).mean((0, 1))
 
     # histograms
     strong_hist, _, _ = np.histogram2d(strong_lambdas, strong_thetas, bins=[lambdas_edges, thetas_edges])
-    max_hist, _, _ = np.histogram2d(max_lambdas[~max_pspec.mask], max_thetas[~max_pspec.mask],
-                                    bins=[lambdas_edges, thetas_edges])
+    strong_hist /= np.repeat(lambdas[..., np.newaxis], len(thetas), axis=1)
+    max_hist, _, _ = np.histogram2d(max_lambdas[~max_lambdas.mask].flatten(), max_thetas[~max_lambdas.mask].flatten(), bins=[lambdas_edges, thetas_edges])
 
     # histogram smoothing (tile along theta-axis and select middle part so that smoothing is periodic over theta)
     # TODO make sure smoothing is adaptive to resolution in lambda, theta
@@ -105,8 +115,8 @@ if __name__ == '__main__':
                                                                                             lambdas, thetas)
 
     # plot images
-    plot_contour_over_image(orig, max_pspec, Lx, Ly, cbarlabel='Maximum of wavelet power spectrum',
-                            alpha=0.5, norm=mpl.colors.LogNorm())
+    plot_contour_over_image(orig, max_pspec, Lx, Ly, cbarlabels=[r'Vertical velocity $\mathregular{(ms^{-1})}$', r'$\max$ $P(\lambda, \vartheta)$'],
+                            alpha=0.5)
     plt.savefig(save_path + 'wavelet_pspec_max.png', dpi=300)
     plt.close()
 
@@ -149,7 +159,7 @@ if __name__ == '__main__':
         if use_radsim:
             csv_file = f'radsim_henk'
         else:
-            csv_file = f'ukv_normalised'
+            csv_file = f'ukv_normalised_lambdadiv1'
 
         if leadtime != 0:
             csv_file += f'_ld{leadtime}'

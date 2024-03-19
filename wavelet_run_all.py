@@ -19,15 +19,19 @@ for idx, row in df.iterrows():
         for region in regions:
             # only 2023 for now
             if idx[0].year == 2023 and region != 'none':
-                # only run if not already run
+
                 command = f"python wavelet_analysis.py {idx[0].date()}_{hour:02d} {leadtime} {region}"
-                dir_name = f'./plots/{idx[0].date()}_{hour:02d}/{region}/'
-                if os.path.isdir(dir_name):
-                    if not os.listdir(dir_name):
-                        print(f"Directory {dir_name} is empty")
-                        os.system(command)
-                    else:
-                        pass
-                else:
-                    print(f"Directory {dir_name} does not exist")
-                    os.system(command)
+
+                # only run if not already run
+                # dir_name = f'./plots/{idx[0].date()}_{hour:02d}/{region}/'
+                # if os.path.isdir(dir_name):
+                #     if not os.listdir(dir_name):
+                #         print(f"Directory {dir_name} is empty")
+                #         os.system(command)
+                #     else:
+                #         pass
+                # else:
+                #     print(f"Directory {dir_name} does not exist")
+                #     os.system(command)
+
+                os.system(command)
