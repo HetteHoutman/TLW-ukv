@@ -6,9 +6,10 @@ import numpy as np
 import os
 import pandas as pd
 import py_cwt2d
+from skimage.feature import peak_local_max
 from skimage.filters import gaussian, threshold_local
 
-from miscellaneous import check_argv_num, k_spaced_lambda, create_bins_from_midpoints
+from miscellaneous import check_argv_num, k_spaced_lambda, create_bins_from_midpoints, log_spaced_lambda
 from prepare_data import get_radsim_img, get_w_field_img
 from wavelet import *
 from wavelet_plot import *
@@ -29,13 +30,16 @@ if __name__ == '__main__':
         pspec_threshold = 1e-4 # wfield unthresholded
         # pspec_threshold = 1e-2 # wfield thresholded
 
+    pspec_threshold = 1e-2
+
     pixels_per_km = 1
     block_size = 51
     vertical_coord = 'air_pressure'
     analysis_level = 70000
-    n_lambda = 60
+    n_lambda = 50
 
     # settings
+    print('Running ' + sys.argv[1] + ' ' + sys.argv[2])
     check_argv_num(sys.argv, 3, "(datetime (YYYY-MM-DD_HH), leadtime, region)")
     datetime_string = sys.argv[1]
     datetime = dt.datetime.strptime(datetime_string, '%Y-%m-%d_%H')
@@ -64,16 +68,12 @@ if __name__ == '__main__':
     else:
         orig, Lx, Ly = get_w_field_img(datetime, region, leadtime=leadtime, coord=vertical_coord, map_height=analysis_level)
 
-    # normalise orig image
-    orig -= orig.min()
-    orig /= orig.max()
-
-    # orig = orig > threshold_local(orig, block_size, method='gaussian')
-
     if use_radsim:
         orig = orig > threshold_local(orig, block_size)
 
-    lambdas, lambdas_edges = k_spaced_lambda([lambda_min, lambda_max], n_lambda)
+    factor = (lambda_max / lambda_min) ** (1 / (n_lambda -1))
+    # have two spots before and after lambda range for finding local maxima
+    lambdas, lambdas_edges = log_spaced_lambda([lambda_min / factor ** 2, lambda_max * factor ** 2], factor)
     thetas = np.arange(0, 180, theta_bin_width)
     thetas_edges = create_bins_from_midpoints(thetas)
     scales = omega_0x * lambdas / (2 * np.pi)
@@ -84,6 +84,7 @@ if __name__ == '__main__':
         cwt, wavnorm = py_cwt2d.cwt_2d(orig, scales, 'morlet', omega_0x=omega_0x, phi=np.deg2rad(90 + theta), epsilon=1)
         pspec[..., i] = (abs(cwt) / scales) ** 2
 
+    pspec /= orig.var()
     # calculate derived things
     pspec = np.ma.masked_less(pspec, pspec_threshold)
 
@@ -102,7 +103,6 @@ if __name__ == '__main__':
 
     # histograms
     strong_hist, _, _ = np.histogram2d(strong_lambdas, strong_thetas, bins=[lambdas_edges, thetas_edges])
-    strong_hist /= np.repeat(lambdas[..., np.newaxis], len(thetas), axis=1)
     max_hist, _, _ = np.histogram2d(max_lambdas[~max_lambdas.mask].flatten(), max_thetas[~max_lambdas.mask].flatten(), bins=[lambdas_edges, thetas_edges])
 
     # histogram smoothing (tile along theta-axis and select middle part so that smoothing is periodic over theta)
@@ -110,9 +110,18 @@ if __name__ == '__main__':
     strong_hist_smoothed = gaussian(np.tile(strong_hist, 3))[:, strong_hist.shape[1]:strong_hist.shape[1] * 2]
     max_hist_smoothed = gaussian(np.tile(max_hist, 3))[:, max_hist.shape[1]:max_hist.shape[1] * 2]
 
-    # determine maximum in smoothed histogram
-    lambda_selected, theta_selected, lambda_bounds, theta_bounds = find_polar_max_and_error(strong_hist_smoothed,
-                                                                                            lambdas, thetas)
+    # find peaks
+    peak_idxs = peak_local_max(max_hist_smoothed)
+
+    # only keep peaks which correspond to an area of larger than area_threshold times lambda^2
+    area_threshold = 1
+    area_condition = (max_hist_smoothed / np.repeat(lambdas[..., np.newaxis],  len(thetas), axis=1) **2 )[tuple(peak_idxs.T)] > area_threshold
+    # only keep peaks within lambda range
+    lambda_condition = (lambdas[peak_idxs[:,0]] >= 3) & (lambdas[peak_idxs[:,0]] <= 35)
+
+    peak_idxs = peak_idxs[area_condition & lambda_condition]
+    lambdas_selected, thetas_selected = lambdas[peak_idxs[:,0]], thetas[peak_idxs[:,1]]
+    areas_selected = max_hist_smoothed[tuple(peak_idxs.T)]
 
     # plot images
     plot_contour_over_image(orig, max_pspec, Lx, Ly, cbarlabels=[r'Vertical velocity $\mathregular{(ms^{-1})}$', r'$\max$ $P(\lambda, \vartheta)$'],
@@ -120,32 +129,26 @@ if __name__ == '__main__':
     plt.savefig(save_path + 'wavelet_pspec_max.png', dpi=300)
     plt.close()
 
-    plot_contour_over_image(orig, max_lambdas, Lx, Ly, cbarlabel='Dominant wavelength (km)',
+    plot_contour_over_image(orig, max_lambdas, Lx, Ly, cbarlabels=[r'Vertical velocity $\mathregular{(ms^{-1})}$', 'Dominant wavelength (km)'],
                             alpha=0.5)
     plt.savefig(save_path + 'wavelet_dom_lambda.png', dpi=300)
     plt.close()
 
-    plot_contour_over_image(orig, max_thetas, Lx, Ly, cbarlabel='Dominant orientation (degrees from North)',
+    plot_contour_over_image(orig, max_thetas, Lx, Ly, cbarlabels=[r'Vertical velocity $\mathregular{(ms^{-1})}$', 'Dominant orientation (degrees from North)'],
                             alpha=0.5)
     plt.savefig(save_path + 'wavelet_dom_theta.png', dpi=300)
     plt.close()
 
     # plot histograms
-    plot_k_histogram(max_lambdas[~max_pspec.mask], max_thetas[~max_pspec.mask], lambdas_edges, thetas_edges)
-    plt.savefig(save_path + 'wavelet_k_histogram_max.png', dpi=300)
-    plt.close()
-
-    plot_k_histogram(strong_lambdas, strong_thetas, lambdas_edges, thetas_edges)
-    plt.scatter(lambda_selected, theta_selected, marker='x', color='k')
-    plt.savefig(save_path + 'wavelet_k_histogram_full_pspec.png', dpi=300)
-    plt.close()
-
-    plot_polar_pcolormesh(strong_hist, lambdas_edges, thetas_edges, cbarlabel='Dominant wavelet count')
-    plt.scatter(np.deg2rad(theta_selected), lambda_selected, marker='x', color='k')
+    plot_polar_pcolormesh(np.ma.masked_equal(strong_hist, 0) / np.repeat(lambdas[..., np.newaxis],  len(thetas), axis=1) **2, lambdas_edges, thetas_edges, cbarlabel=r'Area / $\lambda^2$', vmin=0)
+    for l, t in zip(lambdas_selected, thetas_selected):
+        plt.scatter(np.deg2rad(t), l, marker='x', color='k')
     plt.savefig(save_path + 'wavelet_k_histogram_strong_pspec_polar.png', dpi=300)
     plt.close()
 
-    plot_polar_pcolormesh(max_hist, lambdas_edges, thetas_edges, cbarlabel='Dominant wavelet count')
+    plot_polar_pcolormesh(np.ma.masked_equal(max_hist, 0) / np.repeat(lambdas[..., np.newaxis],  len(thetas), axis=1) **2, lambdas_edges, thetas_edges, cbarlabel=r'Area / $\lambda^2$', vmin=0)
+    for l, t in zip(lambdas_selected, thetas_selected):
+        plt.scatter(np.deg2rad(t), l, marker='x', color='k')
     plt.savefig(save_path + 'wavelet_k_histogram_max_pspec_polar.png', dpi=300)
     plt.close()
 
@@ -159,7 +162,7 @@ if __name__ == '__main__':
         if use_radsim:
             csv_file = f'radsim_henk'
         else:
-            csv_file = f'ukv_normalised_lambdadiv1'
+            csv_file = f'ukv_newalg'
 
         if leadtime != 0:
             csv_file += f'_ld{leadtime}'
@@ -167,21 +170,15 @@ if __name__ == '__main__':
         csv_file += '.csv'
 
         try:
-            df = pd.read_csv(csv_root + csv_file, index_col=[0, 1, 2], parse_dates=[0])
+            df = pd.read_csv(csv_root + csv_file, parse_dates=[0])
         except FileNotFoundError:
-            df = pd.read_csv(csv_root + 'template.csv', index_col=[0, 1, 2], parse_dates=[0])
+            df = pd.read_csv(csv_root + 'new_template.csv', parse_dates=[0])
 
-        df.sort_index(inplace=True)
+        # store peaks
+        for l, t, area in zip(lambdas_selected, thetas_selected, areas_selected):
+            df.loc[len(df)] = [datetime.date(), region, datetime.hour, l, t, area]
 
-        df.loc[(str(datetime.date()), region, datetime.hour), 'lambda'] = lambda_selected
-        df.loc[(str(datetime.date()), region, datetime.hour), 'lambda_min'] = lambda_bounds[0]
-        df.loc[(str(datetime.date()), region, datetime.hour), 'lambda_max'] = lambda_bounds[1]
-        df.loc[(str(datetime.date()), region, datetime.hour), 'theta'] = theta_selected
-        df.loc[(str(datetime.date()), region, datetime.hour), 'theta_min'] = theta_bounds[0]
-        df.loc[(str(datetime.date()), region, datetime.hour), 'theta_max'] = theta_bounds[1]
-
-        df.sort_index(inplace=True)
-        df.to_csv(csv_root + csv_file)
+        df.to_csv(csv_root + csv_file, index=False)
 
         # data_root = f'/storage/silver/metstudent/phd/sw825517/ukv_pspecs/{datetime.strftime("%Y-%m-%d_%H")}_{leadtime:03d}/{region}/'
         # if not os.path.exists(data_root):
