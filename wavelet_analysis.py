@@ -2,6 +2,7 @@ import sys
 
 import datetime as dt
 import matplotlib as mpl
+import matplotlib.pyplot as plt
 import numpy as np
 import os
 import pandas as pd
@@ -16,13 +17,14 @@ from wavelet_plot import *
 
 if __name__ == '__main__':
     # options
-    test = False
+    test = True
     stripe_test = False
     use_radsim = False
 
     lambda_min = 3
     lambda_max = 35
     theta_bin_width = 5
+    wind_deviation = 50
     omega_0x = 6
     if use_radsim:
         pspec_threshold = 1e-2 # wfield thresholded
@@ -66,11 +68,13 @@ if __name__ == '__main__':
         leadtime = 0
         orig, Lx, Ly = get_radsim_img(datetime, region)
     else:
-        orig, Lx, Ly = get_w_field_img(datetime, region, leadtime=leadtime, coord=vertical_coord, map_height=analysis_level)
+        w, u, v, wind_dir, Lx, Ly = get_w_field_img(datetime, region, leadtime=leadtime, coord=vertical_coord, map_height=analysis_level)
+        orig = w[0, ::-1].data
 
     if use_radsim:
         orig = orig > threshold_local(orig, block_size)
 
+    # pspec settings
     factor = (lambda_max / lambda_min) ** (1 / (n_lambda -1))
     # have two spots before and after lambda range for finding local maxima
     lambdas, lambdas_edges = log_spaced_lambda([lambda_min / factor ** 2, lambda_max * factor ** 2], factor)
@@ -85,14 +89,16 @@ if __name__ == '__main__':
         pspec[..., i] = (abs(cwt) / scales) ** 2
 
     pspec /= orig.var()
-    # calculate derived things
-    pspec = np.ma.masked_less(pspec, pspec_threshold)
 
-    # e-folding distance for Morlet
+    # exclude points: (1) less than threshold; (2) within COI; and (3) more than 50 deg from local UKV wind direction
+    threshold_mask = pspec < pspec_threshold
     efold_dist = np.sqrt(2) * scales
     coi_mask = cone_of_influence_mask(pspec.data, efold_dist, pixels_per_km)
-    pspec = np.ma.masked_where(pspec.mask | coi_mask, pspec.data)
+    wind_mask = abs(wind_dir.data[::-1, ..., None, None] - np.broadcast_to(thetas, pspec.shape)) > wind_deviation
 
+    pspec = np.ma.masked_where(threshold_mask | coi_mask | wind_mask, pspec)
+
+    # calculate derived things
     threshold_mask_idx = np.argwhere(~pspec.mask)
     strong_lambdas, strong_thetas = lambdas[threshold_mask_idx[:, -2]], thetas[threshold_mask_idx[:, -1]]
 
@@ -101,7 +107,7 @@ if __name__ == '__main__':
 
     avg_pspec = np.ma.masked_less(pspec.data, pspec_threshold / 2).mean((0, 1))
 
-    # histograms
+    # calculate histograms
     strong_hist, _, _ = np.histogram2d(strong_lambdas, strong_thetas, bins=[lambdas_edges, thetas_edges])
     max_hist, _, _ = np.histogram2d(max_lambdas[~max_lambdas.mask].flatten(), max_thetas[~max_lambdas.mask].flatten(), bins=[lambdas_edges, thetas_edges])
 
@@ -117,13 +123,17 @@ if __name__ == '__main__':
     area_threshold = 1
     area_condition = (max_hist_smoothed / np.repeat(lambdas[..., np.newaxis],  len(thetas), axis=1) **2 )[tuple(peak_idxs.T)] > area_threshold
     # only keep peaks within lambda range
-    lambda_condition = (lambdas[peak_idxs[:,0]] >= 3) & (lambdas[peak_idxs[:,0]] <= 35)
+    lambda_condition = (lambdas[peak_idxs[:,0]] >= lambda_min) & (lambdas[peak_idxs[:,0]] <= lambda_max)
 
     peak_idxs = peak_idxs[area_condition & lambda_condition]
     lambdas_selected, thetas_selected = lambdas[peak_idxs[:,0]], thetas[peak_idxs[:,1]]
     areas_selected = max_hist_smoothed[tuple(peak_idxs.T)]
 
     # plot images
+    plot_wind(w, u, v)
+    plt.savefig(save_path + 'winds.png', dpi=300)
+    plt.close()
+
     plot_contour_over_image(orig, max_pspec, Lx, Ly, cbarlabels=[r'Vertical velocity $\mathregular{(ms^{-1})}$', r'$\max$ $P(\lambda, \vartheta)$'],
                             alpha=0.5)
     plt.savefig(save_path + 'wavelet_pspec_max.png', dpi=300)
@@ -152,9 +162,7 @@ if __name__ == '__main__':
     plt.savefig(save_path + 'wavelet_k_histogram_max_pspec_polar.png', dpi=300)
     plt.close()
 
-    plot_polar_pcolormesh(avg_pspec, lambdas_edges, thetas_edges, cbarlabel='Average power spectrum')
-    plt.savefig(save_path + 'wavelet_average_pspec.png', dpi=300)
-    plt.close()
+
 
     # save results
     if not test:
