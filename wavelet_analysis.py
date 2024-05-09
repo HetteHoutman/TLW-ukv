@@ -94,8 +94,8 @@ if __name__ == '__main__':
     threshold_mask = pspec < pspec_threshold
     efold_dist = np.sqrt(2) * scales
     coi_mask = cone_of_influence_mask(pspec.data, efold_dist, pixels_per_km)
-    wind_mask = ((wind_dir.data[::-1, ..., None, None] % 180 - np.broadcast_to(thetas, pspec.shape)) % 180 >= wind_deviation) & \
-                ((np.broadcast_to(thetas, pspec.shape) - wind_dir.data[::-1, ..., None, None] % 180) % 180 >= wind_deviation)
+    wind_mask = ((wind_dir.data[::-1, ..., None, None] % 180 - np.broadcast_to(thetas, pspec.shape)) % 180 > wind_deviation) & \
+                ((np.broadcast_to(thetas, pspec.shape) - wind_dir.data[::-1, ..., None, None] % 180) % 180 > wind_deviation)
 
     pspec = np.ma.masked_where(threshold_mask | coi_mask | wind_mask, pspec)
 
