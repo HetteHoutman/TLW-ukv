@@ -17,7 +17,7 @@ from wavelet_plot import *
 
 if __name__ == '__main__':
     # options
-    test = True
+    test = False
     stripe_test = False
     use_radsim = False
 
@@ -94,7 +94,8 @@ if __name__ == '__main__':
     threshold_mask = pspec < pspec_threshold
     efold_dist = np.sqrt(2) * scales
     coi_mask = cone_of_influence_mask(pspec.data, efold_dist, pixels_per_km)
-    wind_mask = abs(wind_dir.data[::-1, ..., None, None] - np.broadcast_to(thetas, pspec.shape)) > wind_deviation
+    wind_mask = ((wind_dir.data[::-1, ..., None, None] % 180 - np.broadcast_to(thetas, pspec.shape)) % 180 >= wind_deviation) & \
+                ((np.broadcast_to(thetas, pspec.shape) - wind_dir.data[::-1, ..., None, None] % 180) % 180 >= wind_deviation)
 
     pspec = np.ma.masked_where(threshold_mask | coi_mask | wind_mask, pspec)
 
@@ -117,7 +118,9 @@ if __name__ == '__main__':
     max_hist_smoothed = gaussian(np.tile(max_hist, 3))[:, max_hist.shape[1]:max_hist.shape[1] * 2]
 
     # find peaks
-    peak_idxs = peak_local_max(max_hist_smoothed)
+    peak_idxs = peak_local_max(np.tile(max_hist_smoothed, 3), exclude_border=False)
+    peak_idxs = peak_idxs[(peak_idxs[:,1] >= max_hist_smoothed.shape[1]) & (peak_idxs[:,1] < max_hist_smoothed.shape[1]*2)]
+    peak_idxs[:,1] -= max_hist_smoothed.shape[1]
 
     # only keep peaks which correspond to an area of larger than area_threshold times lambda^2
     area_threshold = 1
@@ -170,7 +173,7 @@ if __name__ == '__main__':
         if use_radsim:
             csv_file = f'radsim_henk'
         else:
-            csv_file = f'ukv_newalg'
+            csv_file = f'ukv_newalg_wind'
 
         if leadtime != 0:
             csv_file += f'_ld{leadtime}'
