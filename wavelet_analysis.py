@@ -1,6 +1,7 @@
 import sys
 
 import datetime as dt
+import iris
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
@@ -17,14 +18,14 @@ from wavelet_plot import *
 
 if __name__ == '__main__':
     # options
-    test = False
+    test = True
     stripe_test = False
     use_radsim = False
 
     lambda_min = 3
     lambda_max = 35
     theta_bin_width = 5
-    wind_deviation = 50
+    wind_deviation_thresh = 50
     omega_0x = 6
     if use_radsim:
         pspec_threshold = 1e-2 # wfield thresholded
@@ -88,14 +89,15 @@ if __name__ == '__main__':
         cwt, wavnorm = py_cwt2d.cwt_2d(orig, scales, 'morlet', omega_0x=omega_0x, phi=np.deg2rad(90 + theta), epsilon=1)
         pspec[..., i] = (abs(cwt) / scales) ** 2
 
-    pspec /= orig.var()
+    var = orig.var()
+    pspec /= var
 
     # exclude points: (1) less than threshold; (2) within COI; and (3) more than 50 deg from local UKV wind direction
     threshold_mask = pspec < pspec_threshold
     efold_dist = np.sqrt(2) * scales
     coi_mask = cone_of_influence_mask(pspec.data, efold_dist, pixels_per_km)
-    wind_mask = ((wind_dir.data[::-1, ..., None, None] % 180 - np.broadcast_to(thetas, pspec.shape)) % 180 > wind_deviation) & \
-                ((np.broadcast_to(thetas, pspec.shape) - wind_dir.data[::-1, ..., None, None] % 180) % 180 > wind_deviation)
+    wind_mask = ((wind_dir.data[::-1, ..., None, None] % 180 - np.broadcast_to(thetas, pspec.shape)) % 180 > wind_deviation_thresh) & \
+                ((np.broadcast_to(thetas, pspec.shape) - wind_dir.data[::-1, ..., None, None] % 180) % 180 > wind_deviation_thresh)
 
     pspec = np.ma.masked_where(threshold_mask | coi_mask | wind_mask, pspec)
 
@@ -106,7 +108,8 @@ if __name__ == '__main__':
     max_pspec = pspec.max((-2, -1))
     max_lambdas, max_thetas = max_lambda_theta(pspec, lambdas, thetas)
 
-    avg_pspec = np.ma.masked_less(pspec.data, pspec_threshold / 2).mean((0, 1))
+    pspec_no_wind_restr = np.ma.masked_where(threshold_mask | coi_mask, pspec.data)
+    max_lambdas_nwr, max_thetas_nwr = max_lambda_theta(pspec_no_wind_restr, lambdas, thetas)
 
     # calculate histograms
     strong_hist, _, _ = np.histogram2d(strong_lambdas, strong_thetas, bins=[lambdas_edges, thetas_edges])
@@ -137,6 +140,14 @@ if __name__ == '__main__':
     plt.savefig(save_path + 'winds.png', dpi=300)
     plt.close()
 
+    wind_theta_diff = cube_from_array_and_cube((max_thetas[::-1])[None, ...] - wind_dir.data, u)
+    wind_theta_nwr_diff = cube_from_array_and_cube((max_thetas_nwr[::-1])[None, ...] - wind_dir.data, u)
+    plt.hist(wind_theta_diff[0].data[~wind_theta_diff[0].data.mask], bins=np.arange(-90, 95, 5), label=r'$\vartheta \leq $' + str(wind_deviation_thresh) + r'$\degree$')
+    plt.hist(wind_theta_nwr_diff[0].data[~wind_theta_nwr_diff[0].data.mask], bins=np.arange(-90, 95, 5), histtype='step', linestyle='--', color='k', label=r'all $\vartheta$ allowed')
+    plt.legend()
+    plt.savefig(save_path + 'wind_theta_diff.png', dpi=300)
+    plt.close()
+
     plot_contour_over_image(orig, max_pspec, Lx, Ly, cbarlabels=[r'Vertical velocity $\mathregular{(ms^{-1})}$', r'$\max$ $P(\lambda, \vartheta)$'],
                             alpha=0.5)
     plt.savefig(save_path + 'wavelet_pspec_max.png', dpi=300)
@@ -165,15 +176,13 @@ if __name__ == '__main__':
     plt.savefig(save_path + 'wavelet_k_histogram_max_pspec_polar.png', dpi=300)
     plt.close()
 
-
-
     # save results
     if not test:
         csv_root = 'wavelet_results/'
         if use_radsim:
             csv_file = f'radsim_henk'
         else:
-            csv_file = f'ukv_newalg_wind'
+            csv_file = f'ukv_newalg_wind_700'
 
         if leadtime != 0:
             csv_file += f'_ld{leadtime}'
@@ -191,9 +200,16 @@ if __name__ == '__main__':
 
         df.to_csv(csv_root + csv_file, index=False)
 
-        # data_root = f'/storage/silver/metstudent/phd/sw825517/ukv_pspecs/{datetime.strftime("%Y-%m-%d_%H")}_{leadtime:03d}/{region}/'
-        # if not os.path.exists(data_root):
-        #     os.makedirs(data_root)
+        data_root = f'/storage/silver/metstudent/phd/sw825517/ukv_data/{datetime.strftime("%Y-%m-%d_%H")}/{region}/'
+        if not os.path.exists(data_root):
+            os.makedirs(data_root)
+
+        iris.save(wind_dir, data_root + 'wind_dir.nc')
+        np.save(data_root + 'max_thetas.npy', max_thetas.data)
+        np.save(data_root + 'mask.npy', max_thetas.mask)
+        np.save(data_root + 'max_thetas_nwr.npy', max_thetas_nwr.data)
+        np.save(data_root + 'mask_nwr.npy', max_thetas_nwr.mask)
+        np.save(data_root + 'std.npy', [np.sqrt(var)])
         # np.save(data_root + 'pspec.npy', pspec.data)
         # np.save(data_root + 'lambdas.npy', lambdas)
         # np.save(data_root + 'thetas.npy', thetas)
