@@ -38,7 +38,7 @@ if __name__ == '__main__':
     pixels_per_km = 1
     block_size = 51
     vertical_coord = 'air_pressure'
-    analysis_level = 70000
+    analysis_level = 80000
     n_lambda = 50
 
     # settings
@@ -59,9 +59,6 @@ if __name__ == '__main__':
 
     if use_radsim:
         save_path += 'radsim_'
-
-    if leadtime != 0:
-        save_path += f'ld{leadtime}_'
 
     # produce image
     if use_radsim:
@@ -178,19 +175,29 @@ if __name__ == '__main__':
 
     # save results
     if not test:
+        if analysis_level==60000:
+            height_suffix = '_600'
+        elif analysis_level==70000:
+            height_suffix = ''
+        elif analysis_level==80000:
+            height_suffix = '_800'
+        else:
+            raise ValueError
+
         csv_root = 'wavelet_results/'
         if use_radsim:
             csv_file = f'radsim_henk'
         else:
-            csv_file = f'ukv_newalg_wind_700'
+            csv_file = f'ukv_newalg_wind'
 
         if leadtime != 0:
-            csv_file += f'_ld{leadtime}'
+            height_suffix = f'_ld{leadtime}' + height_suffix
 
+        csv_file += height_suffix
         csv_file += '.csv'
 
         try:
-            df = pd.read_csv(csv_root + csv_file, parse_dates=[0])
+            df = pd.read_csv(csv_root + csv_file, parse_dates=[0]) 
         except FileNotFoundError:
             df = pd.read_csv(csv_root + 'new_template.csv', parse_dates=[0])
 
@@ -204,12 +211,14 @@ if __name__ == '__main__':
         if not os.path.exists(data_root):
             os.makedirs(data_root)
 
-        iris.save(wind_dir, data_root + 'wind_dir.nc')
-        np.save(data_root + 'max_thetas.npy', max_thetas.data)
-        np.save(data_root + 'mask.npy', max_thetas.mask)
-        np.save(data_root + 'max_thetas_nwr.npy', max_thetas_nwr.data)
-        np.save(data_root + 'mask_nwr.npy', max_thetas_nwr.mask)
-        np.save(data_root + 'std.npy', [np.sqrt(var)])
+        iris.save(wind_dir, data_root + 'wind_dir' + height_suffix + '.nc')
+        np.save(data_root + 'max_thetas' + height_suffix + '.npy', max_thetas.data)
+        np.save(data_root + 'max_lambdas' + height_suffix + '.npy', max_lambdas.data)
+        np.save(data_root + 'mask' + height_suffix + '.npy', max_thetas.mask)
+        np.save(data_root + 'max_thetas_nwr' + height_suffix + '.npy', max_thetas_nwr.data)
+        np.save(data_root + 'max_lambdas_nwr' + height_suffix + '.npy', max_lambdas_nwr.data)
+        np.save(data_root + 'mask_nwr' + height_suffix + '.npy', max_thetas_nwr.mask)
+        np.save(data_root + 'std' + height_suffix + '.npy', [np.sqrt(var)])
         # np.save(data_root + 'pspec.npy', pspec.data)
         # np.save(data_root + 'lambdas.npy', lambdas)
         # np.save(data_root + 'thetas.npy', thetas)
