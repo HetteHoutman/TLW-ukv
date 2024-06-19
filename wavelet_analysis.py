@@ -93,20 +93,23 @@ if __name__ == '__main__':
     threshold_mask = pspec < pspec_threshold
     efold_dist = np.sqrt(2) * scales
     coi_mask = cone_of_influence_mask(pspec.data, efold_dist, pixels_per_km)
-    wind_mask = ((wind_dir.data[::-1, ..., None, None] % 180 - np.broadcast_to(thetas, pspec.shape)) % 180 > wind_deviation_thresh) & \
-                ((np.broadcast_to(thetas, pspec.shape) - wind_dir.data[::-1, ..., None, None] % 180) % 180 > wind_deviation_thresh)
 
-    pspec = np.ma.masked_where(threshold_mask | coi_mask | wind_mask, pspec)
+    pspec = np.ma.masked_where(threshold_mask | coi_mask, pspec)
 
     # calculate derived things
+    # strong stuff does not include wind restriction
     threshold_mask_idx = np.argwhere(~pspec.mask)
     strong_lambdas, strong_thetas = lambdas[threshold_mask_idx[:, -2]], thetas[threshold_mask_idx[:, -1]]
 
     max_pspec = pspec.max((-2, -1))
-    max_lambdas, max_thetas = max_lambda_theta(pspec, lambdas, thetas)
+    max_lambdas_nwr, max_thetas_nwr = max_lambda_theta(pspec, lambdas, thetas)
 
-    pspec_no_wind_restr = np.ma.masked_where(threshold_mask | coi_mask, pspec.data)
-    max_lambdas_nwr, max_thetas_nwr = max_lambda_theta(pspec_no_wind_restr, lambdas, thetas)
+    # now also exclude points that deviate too far from wind direc (but not for max_pspec so that you can keep old mask)
+    wind_mask = ((wind_dir.data[::-1] % 180 - max_thetas_nwr.data) % 180 > wind_deviation_thresh) & \
+                ((max_thetas_nwr.data - wind_dir.data[::-1] % 180) % 180 > wind_deviation_thresh)
+
+    max_lambdas = np.ma.masked_where(max_lambdas_nwr.mask | wind_mask, max_lambdas_nwr)
+    max_thetas = np.ma.masked_where(max_thetas_nwr.mask | wind_mask, max_thetas_nwr)
 
     # calculate histograms
     strong_hist, _, _ = np.histogram2d(strong_lambdas, strong_thetas, bins=[lambdas_edges, thetas_edges])
